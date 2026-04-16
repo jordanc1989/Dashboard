@@ -48,6 +48,11 @@ section[data-testid="stSidebar"] {
 button[data-baseweb="tab"] {
     font-weight: 600 !important;
 }
+/* Dashboard headline */
+h1 {
+    font-family: "Futura", "Trebuchet MS", "Century Gothic", sans-serif !important;
+    color: #374151 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
