@@ -16,76 +16,35 @@ st.set_page_config(
     layout="wide"
 )
 
-# ── Visual theme ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* KPI metric cards */
-[data-testid="stMetric"] {
-    background: white;
-    border-radius: 10px;
-    padding: 20px 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    border-top: 3px solid #1D4ED8;
-}
-[data-testid="stMetricValue"] {
-    font-size: 1.9rem !important;
-    font-weight: 700 !important;
-    color: #111827 !important;
-}
-[data-testid="stMetricLabel"] {
-    color: #6B7280 !important;
-    font-size: 0.78rem !important;
-    font-weight: 600 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.6px !important;
-}
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background: #F8FAFC;
-    border-right: 1px solid #E2E8F0;
-}
-/* Tab bar */
-button[data-baseweb="tab"] {
-    font-weight: 600 !important;
-}
-/* Dashboard headline */
-h1 {
-    font-family: "Futura", "Trebuchet MS", "Century Gothic", sans-serif !important;
-    color: #374151 !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 # ── Plotly house style — applied to every figure via pio.templates.default ─────
-_FONT = dict(family="system-ui, -apple-system, sans-serif", size=12, color="#374151")
 pio.templates["portfolio"] = go.layout.Template(
     layout=go.Layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(249,250,251,0.6)",
-        font=_FONT,
-        title=dict(font=dict(size=14, color="#111827"), x=0, xanchor="left", pad=dict(b=12)),
+        plot_bgcolor="rgba(232,230,220,0.35)",
+        title=dict(font=dict(size=14, color="#141413"), x=0, xanchor="left", pad=dict(b=12)),
         margin=dict(t=52, l=12, r=12, b=12),
-        xaxis=dict(showgrid=True, gridcolor="#F3F4F6", zeroline=False,
-                   linecolor="#E5E7EB", tickfont=_FONT),
-        yaxis=dict(showgrid=True, gridcolor="#F3F4F6", zeroline=False,
-                   linecolor="#E5E7EB", tickfont=_FONT),
-        colorway=["#1D4ED8", "#059669", "#7C3AED", "#D97706",
-                  "#DC2626", "#0891B2", "#65A30D", "#9333EA"],
-        legend=dict(bgcolor="rgba(255,255,255,0.85)", bordercolor="#E5E7EB", borderwidth=1),
+        colorway=[
+        "#B85F3D",
+        "#2E7D68",
+        "#7A52B3",
+        "#2C78B7",
+        "#B6861E",
+        "#433D37"
+        ],
+        legend=dict(bgcolor="rgba(250,249,245,0.9)", bordercolor="#CEC9BC", borderwidth=1),
     )
 )
 pio.templates.default = "plotly+portfolio"
 
-# ── Segment colour map (traffic-light: blue/green = healthy, amber/red = at risk)
+# ── Segment colour map and label order (best to worst) ─────────────────────────────────────────
 SEGMENT_COLORS = {
-    "Champions":           "#1D4ED8",
-    "Loyal Customers":     "#059669",
-    "Potential Loyalists": "#7C3AED",
-    "Promising":           "#0891B2",
-    "Need Attention":      "#D97706",
-    "At Risk":             "#DC2626",
-    "Hibernating":         "#6B7280",
-    "Lost":                "#374151",
+    "Champions":           "#B85F3D",  # copper
+    "Loyal Customers":     "#2E7D68",  # deep jade
+    "Potential Loyalists": "#7A52B3",  # plum
+    "Promising":           "#2C78B7",  # azure
+    "Need Attention":      "#B6861E",  # ochre
+    "At Risk":             "#433D37"  # warm charcoal
 }
 
 # --- Segment labels (ordered best to worst customer value) ---
@@ -95,9 +54,7 @@ SEGMENT_LABELS = [
     "Potential Loyalists",
     "Promising",
     "Need Attention",
-    "At Risk",
-    "Hibernating",
-    "Lost",
+    "At Risk"
 ]
 
 def assign_segment_labels(rfm):
@@ -219,16 +176,69 @@ def run_clustering(rfm_raw, n_clusters, winsorise=True):
     return rfm, sil
 
 @st.cache_data
-def elbow_data(rfm_raw):
-    _, X = transform_rfm(rfm_raw)
-    max_k = min(8, len(X) - 1)
-    inertias, silhouettes = [], []
+def elbow_data(rfm_raw, winsorise=True, max_segments=6):
+    rfm = rfm_raw.copy()
+
+    if winsorise:
+        for col in ["Recency", "Frequency", "Monetary"]:
+            lower = rfm[col].quantile(0.01)
+            upper = rfm[col].quantile(0.99)
+            rfm[col] = rfm[col].clip(lower=lower, upper=upper)
+
+    _, X = transform_rfm(rfm)
+
+    max_k = min(max_segments, len(X) - 1)
+    if max_k < 2:
+        return [], [], []
+
+    inertias = []
+    silhouettes = []
     k_range = range(2, max_k + 1)
+
     for k in k_range:
-        km = KMeans(n_clusters=k, init="k-means++", n_init=10, random_state=10)
+        km = KMeans(
+            n_clusters=k,
+            init="k-means++",
+            n_init=10,
+            random_state=10
+        )
         labels = km.fit_predict(X)
         inertias.append(km.inertia_)
         silhouettes.append(silhouette_score(X, labels))
+
+    return list(k_range), inertias, silhouettes
+
+@st.cache_data
+def elbow_data(rfm_raw, winsorise=True, max_segments=6):
+    rfm = rfm_raw.copy()
+
+    if winsorise:
+        for col in ["Recency", "Frequency", "Monetary"]:
+            lower = rfm[col].quantile(0.01)
+            upper = rfm[col].quantile(0.99)
+            rfm[col] = rfm[col].clip(lower=lower, upper=upper)
+
+    _, X = transform_rfm(rfm)
+
+    max_k = min(len(SEGMENT_LABELS), len(rfm_raw) - 1)
+    if max_k < 2:
+        return [], [], []
+
+    inertias = []
+    silhouettes = []
+    k_range = range(2, max_k + 1)
+
+    for k in k_range:
+        km = KMeans(
+            n_clusters=k,
+            init="k-means++",
+            n_init=10,
+            random_state=10
+        )
+        labels = km.fit_predict(X)
+        inertias.append(km.inertia_)
+        silhouettes.append(silhouette_score(X, labels))
+
     return list(k_range), inertias, silhouettes
 
 @st.cache_data
@@ -326,7 +336,7 @@ with tab1:
         x=monthly_revenue["Month"],
         y=monthly_revenue["Revenue"],
         mode="lines",
-        line=dict(color="#1D4ED8", width=2.5, shape="spline"),
+        line=dict(color="#2C78B7", width=2.5, shape="spline"),
         fill="tozeroy",
         fillcolor="rgba(29,78,216,0.08)",
     ))
@@ -348,7 +358,7 @@ with tab1:
         fig_bar = px.bar(
             top_countries, x="Revenue", y="Country",
             orientation="h", title="Top 10 Countries by Revenue",
-            color_discrete_sequence=["#1D4ED8"],
+            color_discrete_sequence=["#B85F3D"],
         )
         fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"))
         fig_bar.update_xaxes(tickprefix="£", tickformat=",")
@@ -362,7 +372,7 @@ with tab1:
         fig_prod = px.bar(
             top_products, x="Revenue", y="Description",
             orientation="h", title="Top 10 Products by Revenue",
-            color_discrete_sequence=["#7C3AED"],
+            color_discrete_sequence=["#B85F3D"],
         )
         fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"))
         fig_prod.update_xaxes(tickprefix="£", tickformat=",")
@@ -381,70 +391,107 @@ with tab2:
         "**Frequency** (number of orders), and **Monetary** (total spend). "
         "K-Means clustering groups them into actionable segments."
     )
+
     df_customers = df[~df["is_guest"]]
     rfm_raw = build_rfm(df_customers)
-    max_k = min(8, len(rfm_raw) - 1)
+    max_k = min(len(SEGMENT_LABELS), len(rfm_raw) - 1)
 
     if max_k < 2:
-        st.warning("Not enough customers in this selection for segmentation. Try 'All' countries or widen the date range.")
+        st.warning(
+            "Not enough customers in this selection for segmentation. "
+            "Try 'All' countries or widen the date range."
+        )
     else:
-        # ── Elbow / silhouette chart ───────────────────────────────────────────
+        # ── Controls ─────────────────────────────────────────────────────────
+        default_k = min(4, max_k)
+        winsorise = st.toggle(
+            "Winsorise outliers (clip at 1st/99th percentile)",
+            value=True
+        )
+
+        # ── Elbow / silhouette chart ────────────────────────────────────────
         with st.expander("📐 Choose number of clusters (Elbow method)", expanded=True):
             st.markdown("""
-            Use these two charts together to choose the right number of customer segments (`k`):
+Use these two charts together to choose the right number of customer segments `k`:
 
-            **Elbow Curve (left)** — shows how tightly packed the clusters are (inertia).
-            Look for the "elbow": the point where the curve bends and the drop in inertia
-            starts to flatten out. Adding more clusters beyond this point gives diminishing returns.
+**Elbow Curve (left)** — shows how tightly packed the clusters are (inertia).
+Look for the "elbow": the point where the curve bends and the drop in inertia
+starts to flatten out. Adding more clusters beyond this point gives diminishing returns.
 
-            **Silhouette Score (right)** — measures how well separated the clusters are (on a scale of 0 to 1).
-            A higher score means customers within a segment are similar to each other and
-            distinct from other segments. Look for a **local peak** — this is often the best `k`.
+**Silhouette Score (right)** — measures how well separated the clusters are (on a scale of 0 to 1).
+A higher score means customers within a segment are similar to each other and
+distinct from other segments. Look for a **local peak**; this is often the best `k`.
 
-            > 💡 **Rule of thumb:** Find where the elbow & silhouette peak agree. If they differ,
-            > favour the silhouette score. Also consider interpretability: 4 segments are usually
-            > more actionable than 8.
+> 💡 **Rule of thumb:** Find where the elbow and silhouette peak agree. If they differ,
+> favour the silhouette score. Also consider interpretability: 3–4 segments are usually
+> more actionable than 6.
             """)
-            k_vals, inertias, silhouettes = elbow_data(rfm_raw)
+
+            k_vals, inertias, silhouettes = elbow_data(
+                rfm_raw,
+                winsorise=winsorise,
+                max_segments=len(SEGMENT_LABELS)
+            )
 
             c1, c2 = st.columns(2)
+
             with c1:
                 fig_elbow = go.Figure(go.Scatter(
-                    x=k_vals, y=inertias, mode="lines+markers",
+                    x=k_vals,
+                    y=inertias,
+                    mode="lines+markers",
                     name="Inertia",
                     line=dict(color="#1D4ED8", width=2.5),
                     marker=dict(size=7),
                 ))
-                fig_elbow.update_layout(title="Elbow Curve (Inertia)", xaxis_title="k", yaxis_title="Inertia")
-                st.plotly_chart(fig_elbow, width='stretch')
+                fig_elbow.update_layout(
+                    title="Elbow Curve (Inertia)",
+                    xaxis_title="k",
+                    yaxis_title="Inertia"
+                )
+                st.plotly_chart(fig_elbow, width="stretch")
+
             with c2:
                 fig_sil = go.Figure(go.Scatter(
-                    x=k_vals, y=silhouettes, mode="lines+markers",
+                    x=k_vals,
+                    y=silhouettes,
+                    mode="lines+markers",
                     name="Silhouette",
                     line=dict(color="#059669", width=2.5),
                     marker=dict(size=7),
                 ))
-                fig_sil.update_layout(title="Silhouette Score by k", xaxis_title="k", yaxis_title="Score")
-                st.plotly_chart(fig_sil, width='stretch')
+                fig_sil.update_layout(
+                    title="Silhouette Score by k",
+                    xaxis_title="k",
+                    yaxis_title="Score"
+                )
+                st.plotly_chart(fig_sil, width="stretch")
 
-        # ── k selector ────────────────────────────────────────────────────────
-        default_k = min(4, max_k)
+        # ── k selector ──────────────────────────────────────────────────────
         n_clusters = st.select_slider(
             "Number of segments",
             options=list(range(2, max_k + 1)),
             value=default_k
         )
-        winsorise = st.toggle("Winsorise outliers (clip at 1st/99th percentile)", value=True)
+
         rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
         rfm["Segment"] = assign_segment_labels(rfm)
+        rfm["Segment"] = pd.Categorical(
+            rfm["Segment"],
+            categories=SEGMENT_LABELS[:n_clusters],
+            ordered=True
+        )
 
         sil_str = f"{sil:.2f}" if not np.isnan(sil) else "n/a"
-        st.caption(f"Silhouette score for k={n_clusters}: **{sil_str}** (higher = better defined clusters)")
+        st.caption(
+            f"Silhouette score for k={n_clusters}: **{sil_str}** "
+            "(higher = better defined clusters)"
+        )
 
-        # ── Segment summary table ─────────────────────────────────────────────
+        # ── Segment summary table ───────────────────────────────────────────
         st.subheader("Segment Profiles")
         segment_summary = (
-            rfm.groupby("Segment")
+            rfm.groupby("Segment", observed=False)
             .agg(
                 Customers=("CustomerID", "count"),
                 Avg_Recency=("Recency", "mean"),
@@ -454,60 +501,93 @@ with tab2:
             )
             .round(1)
             .reset_index()
-            .sort_values("Avg_Monetary", ascending=False)
         )
-        segment_summary.columns = ["Segment", "Customers", "Avg Recency (days)",
-                                    "Avg Orders", "Avg Spend (£)", "Total Revenue (£)"]
-        st.dataframe(segment_summary, width='stretch')
 
-        # ── Scatter: Frequency vs Monetary, coloured by segment ───────────────
+        segment_summary.columns = [
+            "Segment",
+            "Customers",
+            "Avg Recency (days)",
+            "Avg Orders",
+            "Avg Spend (£)",
+            "Total Revenue (£)"
+        ]
+        st.dataframe(
+            segment_summary,
+            width="stretch",
+            column_config={
+                "Customers": st.column_config.NumberColumn(format="%,d"),
+                "Avg Recency (days)": st.column_config.NumberColumn(format="%.1f"),
+                "Avg Orders": st.column_config.NumberColumn(format="%.1f"),
+                "Avg Spend (£)": st.column_config.NumberColumn(format="£ %.2f"),
+                "Total Revenue (£)": st.column_config.NumberColumn(format="£ %,.0f"),
+            },
+            hide_index=True)
+
+        # ── Scatter: Frequency vs Monetary, coloured by segment ─────────────
         st.subheader("Segment Visualisation")
         col_a, col_b = st.columns(2)
 
         with col_a:
             fig_scatter = px.scatter(
-                rfm, x="Frequency", y="Monetary", color="Segment",
+                rfm,
+                x="Frequency",
+                y="Monetary",
+                color="Segment",
                 color_discrete_map=SEGMENT_COLORS,
+                category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
                 hover_data=["CustomerID", "Recency"],
                 title="Frequency vs Monetary by Segment",
                 labels={"Monetary": "Total Spend (£)"},
                 opacity=0.65,
             )
             fig_scatter.update_yaxes(tickprefix="£", tickformat=",")
-            st.plotly_chart(fig_scatter, width='stretch')
+            st.plotly_chart(fig_scatter, width="stretch")
 
         with col_b:
             fig_box = px.box(
-                rfm, x="Segment", y="Monetary", color="Segment",
+                rfm,
+                x="Segment",
+                y="Monetary",
+                color="Segment",
                 color_discrete_map=SEGMENT_COLORS,
+                category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
                 title="Spend Distribution by Segment",
                 labels={"Monetary": "Total Spend (£)"},
             )
             fig_box.update_layout(showlegend=False)
             fig_box.update_yaxes(tickprefix="£", tickformat=",")
-            st.plotly_chart(fig_box, width='stretch')
+            st.plotly_chart(fig_box, width="stretch")
 
-        # ── Radar chart: normalised RFM means per segment ─────────────────────
+        # ── Radar chart: normalised RFM means per segment ───────────────────
         st.subheader("Segment Radar Chart")
-        radar_df = rfm.groupby("Segment")[["Recency", "Frequency", "Monetary"]].mean()
+        radar_df = (
+            rfm.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
+            .mean()
+            .dropna()
+        )
+
         radar_norm = radar_df.copy()
         radar_norm["Recency"] = 1 - (radar_norm["Recency"] / radar_norm["Recency"].max())
+
         for col in ["Frequency", "Monetary"]:
             radar_norm[col] = radar_norm[col] / radar_norm[col].max()
 
         categories = ["Recency (inv.)", "Frequency", "Monetary"]
         fig_radar = go.Figure()
+
         for segment in radar_norm.index:
             vals = radar_norm.loc[segment].tolist()
             vals += vals[:1]
+
             fig_radar.add_trace(go.Scatterpolar(
                 r=vals,
                 theta=categories + [categories[0]],
                 fill="toself",
-                name=segment,
-                line=dict(color=SEGMENT_COLORS.get(segment, "#1D4ED8"), width=2),
-                opacity=0.75,
+                name=str(segment),
+                line=dict(color=SEGMENT_COLORS.get(str(segment), "#1D4ED8"), width=2),
+                opacity=0.8,
             ))
+
         fig_radar.update_layout(
             polar=dict(
                 radialaxis=dict(visible=True, range=[0, 1], gridcolor="#E5E7EB"),
@@ -516,11 +596,14 @@ with tab2:
             ),
             title="Normalised RFM Profile per Segment",
         )
-        st.plotly_chart(fig_radar, width='stretch')
+        st.plotly_chart(fig_radar, width="stretch")
 
-        # ── Download ──────────────────────────────────────────────────────────
+        # ── Download ────────────────────────────────────────────────────────
         st.subheader("Export")
-        csv = rfm[["CustomerID", "Recency", "Frequency", "Monetary", "Segment"]].to_csv(index=False)
+        csv = rfm[
+            ["CustomerID", "Recency", "Frequency", "Monetary", "Segment"]
+        ].to_csv(index=False)
+
         st.download_button(
             label="⬇️ Download segmented customers (CSV)",
             data=csv,
