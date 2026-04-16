@@ -16,6 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
+st.logo("static/jordan_cheney_logo_orange.png", size="large")
 
 # ── Plotly house style — applied to every figure via pio.templates.default ─────
 pio.templates["portfolio"] = go.layout.Template(

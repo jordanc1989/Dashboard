@@ -30,7 +30,7 @@ style = "normal"
 weight = 400
 
 [theme]
-primaryColor = "#cb785c"
+primaryColor = "#ff8e32"
 backgroundColor = "#fdfdf8"
 secondaryBackgroundColor = "#ecebe3"
 textColor = "#3d3a2a"
