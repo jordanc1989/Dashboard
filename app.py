@@ -132,7 +132,7 @@ def load_data():
     # Remove cancellations AND the original orders they cancelled.
     # Cancellation rows (InvoiceNo starts with "C") have negative Quantity.
     # For each (CustomerID, StockCode, abs_Quantity) we remove that many
-    # matching original rows using cumcount(), so we never over-remove.
+    # matching original rows using cumcount() so we never over-remove.
     cancel_mask = df["InvoiceNo"].str.startswith("C")
     cancels = df[cancel_mask].copy()
     orders = df[~cancel_mask].copy()
@@ -275,7 +275,7 @@ if len(date_range) == 2:
     ]
 
 # --- Header ---
-st.title("📊 Customer Analytics Dashboard")
+st.title("Customer Analytics Dashboard")
 st.markdown(
     f"<p style='color:#6B7280;margin-top:-12px;font-size:0.95rem;'>"
     f"UCI Online Retail Dataset &nbsp;·&nbsp; "
@@ -438,7 +438,7 @@ with tab2:
         rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
         rfm["Segment"] = assign_segment_labels(rfm)
 
-        sil_str = f"{sil:.3f}" if not np.isnan(sil) else "n/a"
+        sil_str = f"{sil:.2f}" if not np.isnan(sil) else "n/a"
         st.caption(f"Silhouette score for k={n_clusters}: **{sil_str}** (higher = better defined clusters)")
 
         # ── Segment summary table ─────────────────────────────────────────────
