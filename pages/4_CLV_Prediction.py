@@ -55,7 +55,7 @@ Both models can be fitted via **MAP estimation** (fast, point estimate) or **MCM
 
 df_customers = df[~df["is_guest"]]
 
-if df_customers["CustomerID"].nunique() < 50:
+if df_customers["Customer ID"].nunique() < 50:
     st.warning("Not enough registered customers in this selection. Try 'All' countries or widen the date range.")
     st.stop()
 
@@ -254,7 +254,7 @@ st.divider()
 @st.cache_data
 def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
-        _df.groupby(["CustomerID", "InvoiceNo", "InvoiceDate"])["Revenue"]
+        _df.groupby(["Customer ID", "Invoice", "InvoiceDate"])["Revenue"]
         .sum()
         .reset_index()
     )
@@ -266,7 +266,7 @@ def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
 
     ch = rfm_train_test_split(
         invoices,
-        customer_id_col="CustomerID",
+        customer_id_col="Customer ID",
         datetime_col="InvoiceDate",
         train_period_end=cal_end,
         test_period_end=obs_end,
@@ -354,7 +354,7 @@ with st.expander("📏 Out-of-sample validation: BG/NBD model", expanded=False):
 @st.cache_data
 def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
-        _df.groupby(["CustomerID", "InvoiceNo", "InvoiceDate"])["Revenue"]
+        _df.groupby(["Customer ID", "Invoice", "InvoiceDate"])["Revenue"]
         .sum()
         .reset_index()
     )
@@ -365,7 +365,7 @@ def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None
 
     ch = rfm_train_test_split(
         invoices,
-        customer_id_col="CustomerID",
+        customer_id_col="Customer ID",
         datetime_col="InvoiceDate",
         monetary_value_col="Revenue",
         train_period_end=cal_end,
@@ -378,10 +378,10 @@ def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None
     # Actual mean spend per transaction in holdout, for customers who purchased in both periods
     holdout_spend = (
         invoices[invoices["InvoiceDate"] > cal_end]
-        .groupby("CustomerID")["Revenue"]
+        .groupby("Customer ID")["Revenue"]
         .mean()
         .reset_index()
-        .rename(columns={"CustomerID": "customer_id", "Revenue": "actual_holdout_spend"})
+        .rename(columns={"Customer ID": "customer_id", "Revenue": "actual_holdout_spend"})
     )
     ch_gg = ch_gg.merge(holdout_spend, on="customer_id", how="inner")
 

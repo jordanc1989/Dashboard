@@ -59,8 +59,8 @@ def assign_segment_labels(rfm):
 
 @st.cache_data
 def load_data():
-    df = pd.read_excel("data/online_retail.xlsx", engine="openpyxl")
-    df["InvoiceNo"] = df["InvoiceNo"].astype(str)
+    df = pd.read_csv("data/online_retail_II.csv")
+    df["Invoice"] = df["Invoice"].astype(str)
     df["StockCode"] = df["StockCode"].astype(str)
 
     df["Country"] = df["Country"].replace({"EIRE": "Ireland"})
@@ -71,23 +71,23 @@ def load_data():
     df = df[~df["Description"].str.upper().str.contains(pattern, na=False)]
     df = df.dropna(subset=["Description"])
 
-    cancel_mask = df["InvoiceNo"].str.startswith("C")
+    cancel_mask = df["Invoice"].str.startswith("C")
     cancels = df[cancel_mask].copy()
     orders = df[~cancel_mask].copy()
 
     if not cancels.empty:
         cancels["_qty_abs"] = cancels["Quantity"].abs()
         cancel_counts = (
-            cancels.groupby(["CustomerID", "StockCode", "_qty_abs"])
+            cancels.groupby(["Customer ID", "StockCode", "_qty_abs"])
             .size()
             .reset_index(name="_n_cancel")
             .rename(columns={"_qty_abs": "Quantity"})
         )
         orders["_cumcount"] = orders.groupby(
-            ["CustomerID", "StockCode", "Quantity"], dropna=False
+            ["Customer ID", "StockCode", "Quantity"], dropna=False
         ).cumcount()
         orders = orders.merge(
-            cancel_counts, on=["CustomerID", "StockCode", "Quantity"], how="left"
+            cancel_counts, on=["Customer ID", "StockCode", "Quantity"], how="left"
         )
         orders["_n_cancel"] = orders["_n_cancel"].fillna(0).astype(int)
         orders = orders[orders["_cumcount"] >= orders["_n_cancel"]].drop(
@@ -96,14 +96,14 @@ def load_data():
 
     df = orders
 
-    df["is_guest"] = df["CustomerID"].isna()
-    df["CustomerID"] = df["CustomerID"].astype("Int64").astype("string")
+    df["is_guest"] = df["Customer ID"].isna()
+    df["Customer ID"] = df["Customer ID"].astype("Int64").astype("string")
 
     df = df[df["Quantity"] > 0]
-    df = df[df["UnitPrice"] >= 0.01]
+    df = df[df["Price"] >= 0.01]
     df = df.drop_duplicates()
 
-    df["Revenue"] = df["Quantity"] * df["UnitPrice"]
+    df["Revenue"] = df["Quantity"] * df["Price"]
     df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
     df["Month"] = df["InvoiceDate"].dt.to_period("M").astype(str)
 
@@ -112,16 +112,16 @@ def load_data():
 
 @st.cache_data
 def load_raw_count():
-    raw = pd.read_excel("data/online_retail.xlsx", engine="openpyxl", usecols=[0])
+    raw = pd.read_csv("data/online_retail_II.csv", usecols=[0])
     return len(raw)
 
 
 @st.cache_data
 def build_rfm(df):
     snapshot_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
-    rfm = df.groupby("CustomerID").agg(
+    rfm = df.groupby("Customer ID").agg(
         Recency=("InvoiceDate", lambda x: (snapshot_date - x.max()).days),
-        Frequency=("InvoiceNo", "nunique"),
+        Frequency=("Invoice", "nunique"),
         Monetary=("Revenue", "sum")
     ).reset_index()
     return rfm
@@ -186,20 +186,40 @@ def elbow_data(rfm_raw, winsorise=True, max_segments=6):
 def build_cohort(df):
     df = df.copy()
     df["OrderMonth"] = df["InvoiceDate"].dt.to_period("M")
-    first_purchase = df.groupby("CustomerID")["OrderMonth"].min().reset_index()
-    first_purchase.columns = ["CustomerID", "CohortMonth"]
-    df = df.merge(first_purchase, on="CustomerID")
+    first_purchase = df.groupby("Customer ID")["OrderMonth"].min().reset_index()
+    first_purchase.columns = ["Customer ID", "CohortMonth"]
+    df = df.merge(first_purchase, on="Customer ID")
     df["PeriodNumber"] = (df["OrderMonth"] - df["CohortMonth"]).apply(lambda x: x.n)
     cohort_counts = (
-        df.groupby(["CohortMonth", "PeriodNumber"])["CustomerID"]
+        df.groupby(["CohortMonth", "PeriodNumber"])["Customer ID"]
         .nunique()
         .reset_index()
-        .pivot(index="CohortMonth", columns="PeriodNumber", values="CustomerID")
+        .pivot(index="CohortMonth", columns="PeriodNumber", values="Customer ID")
     )
     cohort_sizes = cohort_counts[0]
     retention = cohort_counts.divide(cohort_sizes, axis=0) * 100
     retention.index = retention.index.astype(str)
     return retention, cohort_sizes.values
+
+
+@st.cache_data
+def build_revenue_series(df, freq="W"):
+    """Aggregate transactions into a regular-interval revenue time series.
+
+    freq:
+      "W"  - week ending Sunday
+      "MS" - month start
+    Returns a pandas Series indexed by period with a DatetimeIndex at the
+    requested frequency; missing intermediate periods are filled with 0.
+    """
+    series = (
+        df.set_index("InvoiceDate")["Revenue"]
+        .resample(freq)
+        .sum()
+        .asfreq(freq, fill_value=0.0)
+        .rename("Revenue")
+    )
+    return series
 
 
 @st.cache_data
@@ -219,14 +239,14 @@ def build_clv_summary(df):
     obs_end = df["InvoiceDate"].max()
 
     invoices = (
-        df.groupby(["CustomerID", "InvoiceNo", "InvoiceDate"])["Revenue"]
+        df.groupby(["Customer ID", "Invoice", "InvoiceDate"])["Revenue"]
         .sum()
         .reset_index()
     )
 
     summary = rfm_summary(
         invoices,
-        customer_id_col="CustomerID",
+        customer_id_col="Customer ID",
         datetime_col="InvoiceDate",
         monetary_value_col="Revenue",
         observation_period_end=obs_end,

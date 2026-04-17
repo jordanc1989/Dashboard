@@ -126,7 +126,7 @@ else:
     segment_summary = (
         rfm.groupby("Segment", observed=False)
         .agg(
-            Customers=("CustomerID", "count"),
+            Customers=("Customer ID", "count"),
             Avg_Recency=("Recency", "mean"),
             Avg_Frequency=("Frequency", "mean"),
             Avg_Monetary=("Monetary", "mean"),
@@ -168,7 +168,7 @@ else:
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
             category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
-            hover_data=["CustomerID", "Recency"],
+            hover_data=["Customer ID", "Recency"],
             title="Frequency vs Monetary by Segment",
             labels={"Monetary": "Total Spend (£)"},
             opacity=0.65,
@@ -235,7 +235,7 @@ else:
     # ── Download ────────────────────────────────────────────────────────
     st.subheader("Export")
     csv = rfm[
-        ["CustomerID", "Recency", "Frequency", "Monetary", "Segment"]
+        ["Customer ID", "Recency", "Frequency", "Monetary", "Segment"]
     ].to_csv(index=False)
 
     st.download_button(

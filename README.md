@@ -5,8 +5,9 @@ Interactive Streamlit dashboard for customer behavior analytics using the [UCI O
 The app includes:
 - sales and product performance views,
 - RFM customer segmentation,
-- cohort retention analysis, and
-- probabilistic CLV prediction.
+- cohort retention analysis,
+- probabilistic CLV prediction, and
+- revenue time-series forecasting.
 
 ## Features
 
@@ -14,6 +15,7 @@ The app includes:
 - **RFM Segmentation**: K-Means clustering with elbow/silhouette diagnostics and segment labels
 - **Cohort Retention**: month-on-month retention heatmap and retention curves
 - **CLV Prediction**: BG/NBD + Gamma-Gamma modeling via `pymc-marketing`
+- **Revenue Forecasting**: SARIMA and Theta-method models (`statsmodels`) with holdout backtest metrics and 90% confidence intervals
 
 ## Setup
 
@@ -51,7 +53,8 @@ streamlit run Home.py
 │   ├── 1_Overview.py
 │   ├── 2_RFM_Segmentation.py
 │   ├── 3_Cohort_Retention.py
-│   └── 4_CLV_Prediction.py
+│   ├── 4_CLV_Prediction.py
+│   └── 5_Revenue_Forecasting.py
 ├── utils.py
 ├── requirements.txt
 └── data/
@@ -64,5 +67,5 @@ streamlit run Home.py
 - `pandas`, `numpy` for data wrangling
 - `plotly` for interactive visualizations
 - `scikit-learn`, `scipy` for RFM clustering and transformations
-- `openpyxl` for reading the Excel dataset
+- `statsmodels` for SARIMA and Theta-method forecasting
 - `pymc-marketing`, `pytensor` for CLV modeling

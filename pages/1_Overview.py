@@ -30,22 +30,22 @@ with st.expander("🧹 Data quality summary"):
     | Raw rows | {raw_count:,} |
     | After cleaning | {len(df):,} |
     | Rows removed | {raw_count - len(df):,} ({(1 - len(df)/raw_count)*100:.1f}%) |
-    | Unique customers | {df['CustomerID'].nunique():,} |
+    | Unique customers | {df['Customer ID'].nunique():,} |
     | Date range | {df['InvoiceDate'].min().date()} → {df['InvoiceDate'].max().date()} |
     | Guest checkout rows | {df['is_guest'].sum():,} ({df['is_guest'].mean()*100:.1f}%) |
     | Registered customer rows | {(~df['is_guest']).sum():,} |
     """)
     guest_pct = df["is_guest"].mean() * 100
     st.info(
-        f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no CustomerID). "
+        f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
 # ── KPI row ───────────────────────────────────────────────────────────
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Revenue", f"£{df['Revenue'].sum():,.0f}")
-col2.metric("Unique Customers", f"{df['CustomerID'].nunique():,}")
-col3.metric("Total Orders", f"{df['InvoiceNo'].nunique():,}")
-col4.metric("Avg Order Value", f"£{df.groupby('InvoiceNo')['Revenue'].sum().mean():,.2f}")
+col2.metric("Unique Customers", f"{df['Customer ID'].nunique():,}")
+col3.metric("Total Orders", f"{df['Invoice'].nunique():,}")
+col4.metric("Avg Order Value", f"£{df.groupby('Invoice')['Revenue'].sum().mean():,.2f}")
 
 st.divider()
 

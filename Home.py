@@ -28,4 +28,5 @@ Use the sidebar to navigate between pages and filter data by country or date ran
 | 🧩 RFM Segmentation | K-Means customer segmentation using Recency, Frequency & Monetary value |
 | 🔄 Cohort Retention | Monthly cohort retention heatmap and curves |
 | 💰 CLV Prediction | Predicted customer lifetime value and retention curves |
+| 🔮 Revenue Forecasting | Time-series forecasts of future revenue (SARIMA / Holt-Winters) |
 """)
