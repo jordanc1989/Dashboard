@@ -4,3 +4,6 @@ __pycache__/
 .env
 .venv/
 *.code-workspace
+.devcontainer/
+devcontainer.json
+.vscode/
