@@ -117,6 +117,30 @@ def load_raw_count():
 
 
 @st.cache_data
+def load_cancels():
+    """Load only cancel (return) invoices, which `load_data` strips out.
+
+    Mirrors the noise-description filter applied in `load_data` so the set of
+    considered transactions is consistent. Returned columns: Customer ID,
+    InvoiceDate, Invoice.
+    """
+    df = pd.read_csv("data/online_retail_II.csv")
+    df["Invoice"] = df["Invoice"].astype(str)
+
+    noise_terms = ["POSTAGE", "DOTCOM", "BANK CHARGES", "MANUAL",
+                   "AMAZONFEE", "CRUK", "SAMPLES", "TEST"]
+    pattern = "|".join(noise_terms)
+    df = df[~df["Description"].str.upper().str.contains(pattern, na=False)]
+    df = df.dropna(subset=["Description"])
+
+    df = df[df["Invoice"].str.startswith("C")]
+    df = df.dropna(subset=["Customer ID"])
+    df["Customer ID"] = df["Customer ID"].astype("Int64").astype("string")
+    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+    return df[["Customer ID", "InvoiceDate", "Invoice"]]
+
+
+@st.cache_data
 def build_rfm(df):
     snapshot_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
     rfm = df.groupby("Customer ID").agg(
@@ -220,6 +244,96 @@ def build_revenue_series(df, freq="W"):
         .rename("Revenue")
     )
     return series
+
+
+@st.cache_data
+def build_churn_dataset(df, churn_window_days=90):
+    """Build a supervised churn dataset from transaction data.
+
+    Non-contractual retail has no explicit churn label, so we fabricate one
+    via a time split:
+
+      cutoff = max_invoice_date - churn_window_days
+
+    A registered customer who was active on or before `cutoff` is labelled
+    **churned = 1** if they made no purchase in `(cutoff, max_date]`, else 0.
+    Features are computed strictly from transactions at or before the cutoff
+    to avoid look-ahead leakage.
+
+    Returns
+    -------
+    features : pd.DataFrame
+        One row per customer, with engineered features and the `churned` label.
+    meta : dict
+        Context for display: cutoff date, window size, totals.
+    """
+    df = df[~df["is_guest"]].copy()
+    max_date = df["InvoiceDate"].max()
+    cutoff = max_date - pd.Timedelta(days=churn_window_days)
+
+    pre = df[df["InvoiceDate"] <= cutoff]
+    post = df[df["InvoiceDate"] > cutoff]
+
+    invoices = (
+        pre.groupby(["Customer ID", "Invoice", "InvoiceDate"])
+        .agg(
+            order_revenue=("Revenue", "sum"),
+            order_items=("Quantity", "sum"),
+            order_products=("StockCode", "nunique"),
+        )
+        .reset_index()
+    )
+
+    features = (
+        invoices.groupby("Customer ID")
+        .agg(
+            recency_days=("InvoiceDate", lambda x: (cutoff - x.max()).days),
+            tenure_days=("InvoiceDate", lambda x: (cutoff - x.min()).days),
+            frequency=("Invoice", "nunique"),
+            monetary=("order_revenue", "sum"),
+            avg_order_value=("order_revenue", "mean"),
+            avg_items_per_order=("order_items", "mean"),
+            avg_unique_products=("order_products", "mean"),
+        )
+        .reset_index()
+    )
+
+    total_products = (
+        pre.groupby("Customer ID")["StockCode"]
+        .nunique()
+        .rename("unique_products")
+        .reset_index()
+    )
+    features = features.merge(total_products, on="Customer ID", how="left")
+
+    tenure_months = (features["tenure_days"] / 30).clip(lower=1)
+    features["orders_per_month"] = features["frequency"] / tenure_months
+
+    cancels = load_cancels()
+    cancel_counts = (
+        cancels.loc[cancels["InvoiceDate"] <= cutoff]
+        .groupby("Customer ID")["Invoice"]
+        .nunique()
+        .rename("n_returns")
+        .reset_index()
+    )
+    features = features.merge(cancel_counts, on="Customer ID", how="left")
+    features["n_returns"] = features["n_returns"].fillna(0).astype(int)
+    features["return_rate"] = features["n_returns"] / (
+        features["frequency"] + features["n_returns"]
+    )
+
+    active_post = set(post["Customer ID"].unique())
+    features["churned"] = (~features["Customer ID"].isin(active_post)).astype(int)
+
+    meta = {
+        "cutoff": cutoff,
+        "max_date": max_date,
+        "window_days": churn_window_days,
+        "n_customers": len(features),
+        "churn_rate": features["churned"].mean(),
+    }
+    return features, meta
 
 
 @st.cache_data

@@ -14,8 +14,8 @@ name = "RFM Segmentation"
 icon = "🧩"
 
 [[pages]]
-path = "pages/3_Cohort_Retention.py"
-name = "Cohort Retention"
+path = "pages/3_Churn_Prediction.py"
+name = "Churn Prediction"
 icon = "🔄"
 
 [[pages]]

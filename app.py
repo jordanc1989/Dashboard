@@ -28,7 +28,7 @@ Use the sidebar to navigate between pages and filter data by country or date ran
 |---|---|
 | 📈 Overview | Revenue trends, top countries & products, KPIs |
 | 🧩 RFM Segmentation | K-Means customer segmentation using Recency, Frequency & Monetary value |
-| 🔄 Cohort Retention | Monthly cohort retention heatmap and curves |
+| 🔄 Churn Prediction | Predicted customer churn using Random Forest |
 | 💰 CLV Prediction | Predicted customer lifetime value and retention curves |
 | 🔮 Revenue Forecasting | Time-series forecasts of future revenue (SARIMA / Theta) |
 """)
@@ -39,7 +39,7 @@ navigation = st.navigation(
         st.Page(home_page, title="Home", icon="🏠"),
         st.Page("pages/1_Overview.py", title="Overview", icon="📈"),
         st.Page("pages/2_RFM_Segmentation.py", title="RFM Segmentation", icon="🧩"),
-        st.Page("pages/3_Cohort_Retention.py", title="Cohort Retention", icon="🔄"),
+        st.Page("pages/3_Churn_Prediction.py", title="Churn Prediction", icon="🔄"),
         st.Page("pages/4_CLV_Prediction.py", title="CLV Prediction", icon="💰"),
         st.Page("pages/5_Revenue_Forecasting.py", title="Revenue Forecasting", icon="🔮"),
     ],
