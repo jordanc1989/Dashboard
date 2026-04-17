@@ -5,6 +5,5 @@ __pycache__/
 .venv/
 *.code-workspace
 .devcontainer/
-devcontainer.json
 .vscode/
 .cursor/
