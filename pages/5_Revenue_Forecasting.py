@@ -196,7 +196,7 @@ with st.expander("Model parameters", expanded=False):
 
 
 # ── Fit / forecast helpers ────────────────────────────────────────────
-@st.cache_data(show_spinner="Fitting SARIMA …")
+@st.cache_resource(show_spinner="Fitting SARIMA...")
 def fit_sarima(y: pd.Series, order, seasonal_order):
     model = SARIMAX(
         y,
@@ -214,15 +214,14 @@ def sarima_forecast(fitted, n, alpha=0.1):
     return fc.predicted_mean, ci.iloc[:, 0], ci.iloc[:, 1]
 
 
-@st.cache_data(show_spinner="Fitting Theta model …")
+@st.cache_resource(show_spinner="Fitting Theta model...")
 def fit_theta(y: pd.Series, period: int):
     deseasonalize = period >= 2 and len(y) >= 2 * period
     kwargs = dict(deseasonalize=deseasonalize)
     if deseasonalize:
         kwargs["period"] = period
         if (y <= 0).any():
-            # Multiplicative seasonality is undefined for non-positive values.
-            kwargs["method"] = "additive"
+            kwargs["method"] = "additive"  # Multiplicative seasonality is undefined for non-positive values.
     model = ThetaModel(y, **kwargs)
     return model.fit(disp=False)
 
@@ -479,7 +478,7 @@ with st.expander("📋 Forecast values"):
 
 
 st.caption(
-    "Dataset covers ~2 years (Dec 2009 – Dec 2011). Yearly seasonality is "
-    "identifiable but rests on only ~2 full cycles — forecasts more than a "
+    "Dataset covers ~2 years (Dec 2009 - Dec 2011). Yearly seasonality is "
+    "identifiable but rests on only ~2 full cycles. Forecasts more than a "
     "season ahead should be treated as indicative."
 )

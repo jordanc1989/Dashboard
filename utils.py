@@ -234,13 +234,17 @@ def build_revenue_series(df, freq="W"):
       "W"  - week ending Sunday
       "MS" - month start
     Returns a pandas Series indexed by period with a DatetimeIndex at the
-    requested frequency; missing intermediate periods are filled with 0.
+    requested frequency.
     """
+
+    out = df.copy()
+    out["InvoiceDate"] = pd.to_datetime(out["InvoiceDate"], errors="coerce")
+    out = out.dropna(subset=["InvoiceDate", "Revenue"]).sort_values("InvoiceDate")
+
     series = (
-        df.set_index("InvoiceDate")["Revenue"]
+        out.set_index("InvoiceDate")["Revenue"]
         .resample(freq)
         .sum()
-        .asfreq(freq, fill_value=0.0)
         .rename("Revenue")
     )
     return series

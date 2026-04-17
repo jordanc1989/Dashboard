@@ -54,7 +54,7 @@ standard workaround for non-contractual retail is a **rolling-window definition*
 This gives a real, held-out ground truth from the data itself. The model is
 then trained and evaluated on an 80 / 20 stratified split of this labelled set,
 and out-of-fold probabilities are generated for every customer via 5-fold
-cross-validation for the distribution and at-risk table below.
+cross-validation for the at-risk table below.
         """
     )
 
@@ -83,7 +83,7 @@ with c2:
         max_value=300,
         value=200,
         step=50,
-        help="More trees = smoother probabilities, slower fit.",
+        help="More trees gives smoother probabilities but slower fit.",
     )
 with c3:
     threshold = st.slider(
@@ -113,12 +113,12 @@ with adv1:
 with adv2:
     max_depth = st.slider(
         "Max tree depth",
-        min_value=0,
+        min_value=1,
         max_value=15,
         value=10,
         help=(
             "Limits how deep each tree grows. Higher values allow more complex splits "
-            "(risk overfitting on small samples). 8–15 is often a good range for retail churn."
+            "(risk overfitting on small samples). 5-15 is often a good range for retail churn."
         ),
     )
 with adv3:
@@ -275,14 +275,14 @@ st.caption(
 if overfit_gap > 0.08:
     st.warning(
         f"⚠️ Train AUC ({test_metrics['train_auc']:.3f}) is notably higher than "
-        f"test AUC ({test_metrics['auc']:.3f}) — the model may be overfitting. "
-        f"Try reducing max tree depth or increasing min samples to split."
+        f"test AUC ({test_metrics['auc']:.3f}): the model may be overfitting. "
+        f"Try reducing *max tree depth* or increasing *min samples to split*."
     )
 
 st.info(
     "💡 **Recall matters more than precision for retention.** Contacting a "
-    "loyal customer with an unnecessary offer is cheap; failing to flag an "
-    "at-risk one means lost revenue. Lower the decision threshold above to "
+    "loyal customer with an unnecessary offer is cheap, but failing to flag an "
+    "at-risk one could mean lost revenue! Lower the **decision threshold** above to "
     "trade precision for recall."
 )
 
