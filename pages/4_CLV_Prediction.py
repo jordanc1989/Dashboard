@@ -6,18 +6,19 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from pymc_marketing.clv import BetaGeoModel, GammaGammaModel
-from pymc_marketing.clv.utils import customer_lifetime_value, rfm_train_test_split
+from pymc_marketing.clv.utils import rfm_train_test_split
 from utils import load_data, apply_sidebar_filters, build_clv_summary
+import pytensor
+
+pytensor.config.cxx = ""  # Disables C compilation entirely - to fix current MacOS bug until Pytensor is updated
 
 WEEKS_PER_MONTH = 4.345  # 365.25 / 12 / 7
-
 
 def _df_hash(df: pd.DataFrame) -> str:
     return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
 
-
 st.set_page_config(
-    page_title="CLV Prediction · Customer Analytics",
+    page_title="CLV Prediction: Customer Analytics",
     page_icon="💰",
     layout="wide"
 )
@@ -30,14 +31,13 @@ st.markdown(
     "Two probabilistic models are chained to predict future value per customer: "
     "**BG/NBD** (Beta-Geometric / Negative Binomial Distribution) models *when* customers "
     "will purchase again, and **Gamma-Gamma** models *how much* they'll spend. "
-    "Together they produce an individual CLV forecast over any horizon you choose."
+    "Together they produce an individual CLV forecast over any horizon you choose!"
 )
 
 with st.expander("How the models work"):
     st.markdown("""
 **BG/NBD model** assumes each customer has an unobserved purchase rate (Poisson) and dropout
-probability (Geometric). The population-level distributions of these rates are modelled as
-Gamma and Beta respectively — hence the name. It takes three inputs per customer:
+probability (Geometric). It takes three inputs per customer:
 
 - **Frequency** — number of repeat purchases (total orders minus the first)
 - **Recency** — weeks since their last purchase
@@ -48,19 +48,10 @@ customer is still active** ("alive").
 
 **Gamma-Gamma model** takes customers with at least one repeat purchase and models the
 distribution of average spend, assuming spend is independent of purchase frequency.
-It outputs a corrected estimate of **expected average order value**.""")
+It outputs a corrected, customer-specific estimate of **expected average order value**.
 
-    st.latex(r"""
-\mathrm{CLV} = \sum_{t=1}^{T}
-\frac{\mathbb{E}[\text{purchases in period } t] \times \mathbb{E}[\text{AOV}]}
-{(1 + \text{discount rate})^t}
-""")
-
-    st.markdown("""
-Both models are fitted here using **MAP estimation** (maximum a posteriori), which is
-equivalent to maximum likelihood with the Bayesian prior acting as a regulariser.
-Full MCMC sampling would additionally quantify uncertainty around each prediction.
-    """)
+Both models can be fitted via **MAP estimation** (fast, point estimate) or **MCMC sampling**
+(slower but enables credible intervals on every prediction).""")
 
 df_customers = df[~df["is_guest"]]
 
@@ -75,112 +66,193 @@ if len(summary) < 20:
     st.stop()
 
 # ── Controls ───────────────────────────────────────────────────────────────────
-col_ctrl1, col_ctrl2 = st.columns(2)
+col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns(4)
 with col_ctrl1:
     horizon_months = st.slider("Prediction horizon (months)", min_value=1, max_value=12, value=3)
 with col_ctrl2:
     annual_rate = st.slider(
         "Annual discount rate (%)",
-        min_value=0.0, max_value=15.0, value=3.5, step=0.5,
-        help="Cost of capital used to discount future cash flows to present value. 3–5% is typical for stable retailers."
+        min_value=0.0, max_value=10.0, value=3.5, step=0.5,
+        help="Cost of capital used to discount future cash flows to present value. 3-5% is typical for stable retailers."
     ) / 100
     monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
 
+with col_ctrl3:
+    winsorise_monetary = st.toggle(
+        "Winsorise spend (99th pct)",
+        value=True,
+        help="Clips extreme values at the 99th percentile before fitting the Gamma-Gamma model. Reduces the influence of one-off large orders on everyone's predicted AOV.",
+    )
+with col_ctrl4:
+    use_mcmc = st.toggle(
+        "MCMC sampling",
+        value=False,
+        help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes ~1-2 minutes to run. Results cached after the first run.",
+    )
+
+if use_mcmc:
+    st.toast("MCMC mode enabled — first run takes ~1-2 minutes. Results are cached once fitted.")
+
 horizon_weeks = horizon_months * WEEKS_PER_MONTH
+fit_method    = "mcmc" if use_mcmc else "map"
 
 # ── Fit models ─────────────────────────────────────────────────────────────────
-bg_data = summary[["customer_id", "frequency", "recency", "T"]].copy()
-gg_data = summary[["customer_id", "frequency", "monetary_value"]].copy()
+bg_data = summary[summary["frequency"] > 0][["customer_id", "frequency", "recency", "T"]].copy()
+gg_data = summary[(summary["frequency"] > 0) & (summary["monetary_value"] > 0)][["customer_id", "frequency", "monetary_value"]].copy()
+
+if winsorise_monetary:
+    cap = gg_data["monetary_value"].quantile(0.99)
+    gg_data["monetary_value"] = gg_data["monetary_value"].clip(upper=cap)
 
 
 @st.cache_resource
-def fit_bgnbd(data_hash: str, _data: pd.DataFrame):
+def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
     bgm = BetaGeoModel(data=_data)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        bgm.fit(method="map")
+        fit_kwargs = {"method": method}
+        if method == "mcmc":
+            try:
+                import nutpie  # noqa: F401
+                fit_kwargs["nuts_sampler"] = "nutpie"
+            except ImportError:
+                pass
+        bgm.fit(**fit_kwargs)
+    if method == "mcmc":
+        bgm.thin_fit_result(keep_every=2)  # Reduces memory / prediction cost at the expense of slightly less smooth posteriors.
     return bgm
 
 
 @st.cache_resource
-def fit_gg(data_hash: str, _data: pd.DataFrame):
+def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
     ggm = GammaGammaModel(data=_data)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        ggm.fit(method="map")
+        fit_kwargs = {"method": method}
+        if method == "mcmc":
+            try:
+                import nutpie  # noqa: F401
+                fit_kwargs["nuts_sampler"] = "nutpie"
+            except ImportError:
+                pass
+        ggm.fit(**fit_kwargs)
+    if method == "mcmc":
+        ggm.thin_fit_result(keep_every=2)
     return ggm
 
 
-with st.spinner("Fitting BG/NBD and Gamma-Gamma models (MAP)…"):
-    bgm = fit_bgnbd(_df_hash(bg_data), bg_data)
-    ggm = fit_gg(_df_hash(gg_data), gg_data)
+spinner_msg = (
+    "Fitting BG/NBD and Gamma-Gamma models via MCMC — this may take 1-2 minutes…"
+    if fit_method == "mcmc" else
+    "Fitting BG/NBD and Gamma-Gamma models (MAP)…"
+)
+with st.spinner(spinner_msg):
+    bgm = fit_bgnbd(_df_hash(bg_data), fit_method, bg_data)
+    ggm = fit_gg(_df_hash(gg_data), fit_method, gg_data)
 
 # ── Gamma-Gamma independence assumption check ──────────────────────────────────
-fm_corr = summary[["frequency", "monetary_value"]].corr().iloc[0, 1]
+fm_corr = gg_data[["frequency", "monetary_value"]].corr().iloc[0, 1]
 if abs(fm_corr) > 0.3:
     st.warning(
-        f"⚠️ Frequency–monetary correlation is **{fm_corr:+.2f}**. "
+        f"⚠️ Frequency-monetary correlation is **{fm_corr:+.2f}**. "
         "The Gamma-Gamma model assumes these are approximately independent "
         "(|r| < 0.3). Spend predictions may be biased for this segment."
     )
 else:
     st.caption(
         f"✓ Gamma-Gamma independence assumption holds "
-        f"(frequency–monetary correlation = {fm_corr:+.2f}, |r| < 0.3)."
+        f"(frequency-monetary correlation = {fm_corr:+.2f}, |r| < 0.3)."
     )
 
 # ── Predictions ────────────────────────────────────────────────────────────────
+# Label each series with customer_id before assigning back
 predicted_purchases = (
     bgm.expected_purchases(data=bg_data, future_t=horizon_weeks)
     .mean(("chain", "draw"))
     .to_series()
+    .set_axis(bg_data["customer_id"].values) 
 )
 prob_alive = (
     bgm.expected_probability_alive(data=bg_data)
     .mean(("chain", "draw"))
     .to_series()
+    .set_axis(bg_data["customer_id"].values)
 )
 expected_aov = (
     ggm.expected_customer_spend(data=gg_data)
     .mean(("chain", "draw"))
     .to_series()
+    .set_axis(gg_data["customer_id"].values)   # gg_data is a subset — freq > 0 only
 )
 
-# customer_lifetime_value requires a future_spend column; future_t is in months
-clv_data = bg_data.copy()
-clv_data["future_spend"] = expected_aov.values
-
+# GammaGamma CLV is only defined for repeat buyers with positive spend.
+clv_input = summary[(summary["frequency"] > 0) & (summary["monetary_value"] > 0)].copy()
+clv_da = ggm.expected_customer_lifetime_value(
+    transaction_model=bgm,
+    data=clv_input,
+    future_t=horizon_months,
+    discount_rate=monthly_discount,
+    time_unit="W",
+)
 clv = (
-    customer_lifetime_value(
-        bgm,
-        clv_data,
-        future_t=horizon_months,
-        discount_rate=monthly_discount,
-        time_unit="W",
-    )
-    .mean(("chain", "draw"))
+    clv_da.mean(("chain", "draw"))
     .to_series()
+    .set_axis(clv_input["customer_id"].values)
     .clip(lower=0)
 )
 
-summary["predicted_purchases"] = predicted_purchases.values
-summary["prob_alive"]           = prob_alive.values
-summary["expected_aov"]         = expected_aov.values
-summary["clv"]                  = clv.values
+summary = summary.set_index("customer_id")
+summary["predicted_purchases"] = predicted_purchases.reindex(summary.index)
+summary["prob_alive"]           = prob_alive.reindex(summary.index)
+summary["expected_aov"]         = expected_aov.reindex(summary.index).fillna(0)  # freq=0 customers have no AOV estimate
+summary["clv"]                  = clv.reindex(summary.index).fillna(0)
+
+if use_mcmc:
+    ci = clv_da.quantile([0.05, 0.95], dim=["chain", "draw"])
+    clv_p05 = (
+        ci.sel(quantile=0.05).to_series()
+        .set_axis(clv_input["customer_id"].values)
+        .clip(lower=0)
+    )
+    clv_p95 = (
+        ci.sel(quantile=0.95).to_series()
+        .set_axis(clv_input["customer_id"].values)
+        .clip(lower=0)
+    )
+    summary["clv_p05"] = clv_p05.reindex(summary.index).fillna(0)
+    summary["clv_p95"] = clv_p95.reindex(summary.index).fillna(0)
+
+summary = summary.reset_index()  # restore customer_id as a plain column
 
 # ── KPIs ───────────────────────────────────────────────────────────────────────
 st.divider()
 k1, k2, k3, k4 = st.columns(4)
 k1.metric("Customers modelled", f"{len(summary):,}")
-k2.metric(f"Expected revenue (next {horizon_months}m)", f"£{summary['clv'].sum():,.0f}")
-k3.metric("Median customer CLV", f"£{summary['clv'].median():,.2f}")
+
+total_clv = summary["clv"].sum()
+median_clv = summary["clv"].median()
+
+if use_mcmc:
+    k2.metric(
+        f"Expected revenue (next {horizon_months}m)",
+        f"£{total_clv:,.0f}",
+        help=f"90% credible interval: £{summary['clv_p05'].sum():,.0f} - £{summary['clv_p95'].sum():,.0f}",
+    )
+    k3.metric(
+        "Median CLV",
+        f"£{median_clv:,.2f}",
+        help=f"90% credible interval: £{summary['clv_p05'].median():,.2f} - £{summary['clv_p95'].median():,.2f}",
+    )
+else:
+    k2.metric(f"Expected revenue (next {horizon_months}m)", f"£{total_clv:,.0f}")
+    k3.metric("Median CLV", f"£{median_clv:,.2f}")
 k4.metric("Median P(still active)", f"{summary['prob_alive'].median()*100:.1f}%")
 
 st.divider()
 
 # ── Out-of-sample validation ───────────────────────────────────────────────────
 @st.cache_data
-def run_holdout_validation(_df: pd.DataFrame) -> tuple | None:
+def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
         _df.groupby(["CustomerID", "InvoiceNo", "InvoiceDate"])["Revenue"]
         .sum()
@@ -220,16 +292,16 @@ def run_holdout_validation(_df: pd.DataFrame) -> tuple | None:
     return ch, holdout_weeks, cal_end
 
 
-with st.expander("📏 Out-of-sample validation (calibration / holdout)", expanded=False):
+with st.expander("📏 Out-of-sample validation: BG/NBD model", expanded=False):
     st.markdown(
         "Model performance is evaluated by withholding the last 25% of the observation window, "
-        "fitting BG/NBD only on the earlier 75%, and predicting the number of purchases each "
+        "fitting BG/NBD (MAP) only on the earlier 75%, and predicting the number of purchases each "
         "customer will make in the holdout. The chart bins customers by their frequency in the "
         "calibration period and plots predicted vs. actual mean purchases in the holdout. "
-        "Close alignment with the dashed y=x line indicates the model is well-calibrated."
+        "Close alignment with the dashed y=x line indicates the model is well-calibrated. "
     )
 
-    validation = run_holdout_validation(df_customers)
+    validation = run_holdout_validation(_df_hash(df_customers), df_customers)
     if validation is None:
         st.info("Not enough data to run holdout validation for this selection.")
     else:
@@ -277,13 +349,131 @@ with st.expander("📏 Out-of-sample validation (calibration / holdout)", expand
         )
         st.plotly_chart(fig_val, width="stretch")
 
+
+# ── GG out-of-sample validation ────────────────────────────────────────────────
+@st.cache_data
+def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
+    invoices = (
+        _df.groupby(["CustomerID", "InvoiceNo", "InvoiceDate"])["Revenue"]
+        .sum()
+        .reset_index()
+    )
+
+    obs_start = _df["InvoiceDate"].min()
+    obs_end   = _df["InvoiceDate"].max()
+    cal_end   = obs_start + pd.Timedelta(days=int((obs_end - obs_start).days * 0.75))
+
+    ch = rfm_train_test_split(
+        invoices,
+        customer_id_col="CustomerID",
+        datetime_col="InvoiceDate",
+        monetary_value_col="Revenue",
+        train_period_end=cal_end,
+        test_period_end=obs_end,
+        time_unit="W",
+    )
+
+    ch_gg = ch[(ch["frequency"] > 0) & (ch["monetary_value"] > 0)].copy()
+
+    # Actual mean spend per transaction in holdout, for customers who purchased in both periods
+    holdout_spend = (
+        invoices[invoices["InvoiceDate"] > cal_end]
+        .groupby("CustomerID")["Revenue"]
+        .mean()
+        .reset_index()
+        .rename(columns={"CustomerID": "customer_id", "Revenue": "actual_holdout_spend"})
+    )
+    ch_gg = ch_gg.merge(holdout_spend, on="customer_id", how="inner")
+
+    if len(ch_gg) < 20:
+        return None
+
+    cal_gg = ch_gg[["customer_id", "frequency", "monetary_value"]].copy()
+    ggm_cal = GammaGammaModel(data=cal_gg)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ggm_cal.fit(method="map")
+
+    ch_gg["predicted_spend"] = (
+        ggm_cal.expected_customer_spend(data=cal_gg)
+        .mean(("chain", "draw"))
+        .to_series()
+        .values
+    )
+
+    return ch_gg, cal_end
+
+
+with st.expander("📏 Out-of-sample validation: Gamma-Gamma spend model", expanded=False):
+    st.markdown(
+        "The Gamma-Gamma model is validated using the same 75/25 time split. "
+        "It is fitted on calibration-period transactions, and its predicted average order value "
+        "is compared against each customer's actual mean spend in the holdout period. "
+        "Only customers who purchased in both periods are included, since we need actuals to "
+        "compare against. The closer points cluster around the dashed y=x line, the better "
+        "the model's spend predictions. MAP is always used for validation."
+    )
+
+    gg_validation = run_gg_holdout_validation(_df_hash(df_customers), df_customers)
+    if gg_validation is None:
+        st.info("Not enough data to run Gamma-Gamma holdout validation for this selection.")
+    else:
+        ch_gg, gg_cal_end = gg_validation
+
+        mae_gg  = (ch_gg["predicted_spend"] - ch_gg["actual_holdout_spend"]).abs().mean()
+        rmse_gg = np.sqrt(((ch_gg["predicted_spend"] - ch_gg["actual_holdout_spend"]) ** 2).mean())
+        r_gg    = ch_gg[["predicted_spend", "actual_holdout_spend"]].corr().iloc[0, 1]
+
+        gv1, gv2, gv3, gv4 = st.columns(4)
+        gv1.metric("Customers compared", f"{len(ch_gg):,}")
+        gv2.metric("MAE", f"£{mae_gg:,.2f}")
+        gv3.metric("RMSE", f"£{rmse_gg:,.2f}")
+        gv4.metric("Pearson r", f"{r_gg:.3f}")
+
+        spend_cap = max(
+            ch_gg["predicted_spend"].quantile(0.99),
+            ch_gg["actual_holdout_spend"].quantile(0.99),
+        )
+        plot_gg   = ch_gg[
+            (ch_gg["predicted_spend"] <= spend_cap) &
+            (ch_gg["actual_holdout_spend"] <= spend_cap)
+        ]
+        n_clipped = len(ch_gg) - len(plot_gg)
+
+        fig_gg_val = go.Figure()
+        fig_gg_val.add_trace(go.Scatter(
+            x=[0, spend_cap], y=[0, spend_cap],
+            mode="lines", name="Perfect prediction",
+            line=dict(color="#9CA3AF", width=1.5, dash="dash"),
+        ))
+        fig_gg_val.add_trace(go.Scatter(
+            x=plot_gg["predicted_spend"],
+            y=plot_gg["actual_holdout_spend"],
+            mode="markers",
+            name="Customers",
+            marker=dict(color="#2E7D68", size=5, opacity=0.5),
+            hovertemplate="Predicted AOV: £%{x:,.2f}<br>Actual holdout spend: £%{y:,.2f}<extra></extra>",
+        ))
+        fig_gg_val.update_layout(
+            title=f"Predicted vs actual mean spend (train to {gg_cal_end.date()})",
+            xaxis=dict(title="Predicted AOV (£)", tickprefix="£", tickformat=","),
+            yaxis=dict(title="Actual holdout mean spend (£)", tickprefix="£", tickformat=","),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        )
+        st.plotly_chart(fig_gg_val, width="stretch")
+        if n_clipped > 0:
+            st.caption(
+                f"{n_clipped} customer{'s' if n_clipped > 1 else ''} above the 99th percentile "
+                "not shown."
+            )
+
 # ── Model diagnostics ──────────────────────────────────────────────────────────
 st.subheader("Model Diagnostics")
 
 col_d1, col_d2 = st.columns(2)
 
 with col_d1:
-    st.markdown("**Frequency–Recency matrix** — expected purchases in the next period")
+    st.markdown("**Frequency-Recency matrix** — expected purchases in the next period")
     st.markdown(
         "Frequent buyers who purchased recently (bottom-left) are predicted to buy most. "
         "Frequent buyers who haven't purchased in a long time (bottom-right) "
@@ -294,7 +484,7 @@ with col_d1:
     max_freq = min(int(summary["frequency"].quantile(0.95)), 40)
     max_wsl  = int(t_val)
 
-    freq_grid = np.arange(0, max_freq + 1)
+    freq_grid = np.arange(1, max_freq + 1)
     wsl_grid  = np.arange(0, max_wsl + 1)
 
     freq_2d, wsl_2d = np.meshgrid(freq_grid, wsl_grid, indexing="ij")
@@ -369,19 +559,22 @@ st.subheader("CLV Distribution")
 col_h1, col_h2 = st.columns(2)
 
 with col_h1:
-    clv_max  = summary["clv"].max()
-    bin_size = clv_max / 60
+    x_cap        = summary["clv"].quantile(0.99)
+    n_above      = (summary["clv"] > x_cap).sum()
+    bin_size     = x_cap / 50
     fig_hist = px.histogram(
-        summary,
+        summary[summary["clv"] <= x_cap],
         x="clv",
         title=f"CLV distribution over {horizon_months} months",
         labels={"clv": "Predicted CLV (£)"},
         color_discrete_sequence=["#2C78B7"],
     )
-    fig_hist.update_traces(xbins=dict(start=0, end=clv_max * 1.05, size=bin_size))
+    fig_hist.update_traces(xbins=dict(start=0, end=x_cap * 1.02, size=bin_size))
     fig_hist.update_xaxes(tickprefix="£", tickformat=",")
     fig_hist.update_layout(showlegend=False)
     st.plotly_chart(fig_hist, width="stretch")
+    if n_above > 0:
+        st.caption(f"{n_above} customer{'s' if n_above > 1 else ''} above £{x_cap:,.0f} (99th percentile) not shown.")
 
 with col_h2:
     sorted_clv    = np.sort(summary["clv"].values)
@@ -421,9 +614,13 @@ st.subheader("Top Customers by Predicted CLV")
 
 top_n = st.slider("Show top N customers", min_value=10, max_value=100, value=25, step=5)
 
+base_cols = ["customer_id", "frequency", "recency", "T", "monetary_value",
+             "predicted_purchases", "prob_alive", "expected_aov", "clv"]
+if use_mcmc:
+    base_cols += ["clv_p05", "clv_p95"]
+
 top_customers = (
-    summary[["customer_id", "frequency", "recency", "T", "monetary_value",
-              "predicted_purchases", "prob_alive", "expected_aov", "clv"]]
+    summary[base_cols]
     .sort_values("clv", ascending=False)
     .head(top_n)
     .reset_index(drop=True)
@@ -434,21 +631,30 @@ top_customers["recency"] = (top_customers["T"] - top_customers["recency"]).clip(
 pred_col = f"Predicted purchases (next {horizon_months}m)"
 clv_col  = f"{horizon_months}-month CLV (£)"
 
-top_customers.columns = [
+col_names = [
     "Customer ID", "Repeat purchases", "Weeks since last purchase", "Tenure (wks)",
     "Historical AOV (£)", pred_col, "P(active)", "Expected AOV (£)", clv_col,
 ]
+if use_mcmc:
+    col_names += ["CLV 5th pct (£)", "CLV 95th pct (£)"]
+
+top_customers.columns = col_names
+
+col_cfg = {
+    "Historical AOV (£)": st.column_config.NumberColumn(format="£ %.2f"),
+    "Expected AOV (£)":   st.column_config.NumberColumn(format="£ %.2f"),
+    clv_col:              st.column_config.NumberColumn(format="£ %.2f"),
+    pred_col:             st.column_config.NumberColumn(format="%.2f"),
+    "P(active)":          st.column_config.ProgressColumn(min_value=0, max_value=1),
+}
+if use_mcmc:
+    col_cfg["CLV 5th pct (£)"]  = st.column_config.NumberColumn(format="£ %.2f")
+    col_cfg["CLV 95th pct (£)"] = st.column_config.NumberColumn(format="£ %.2f")
 
 st.dataframe(
     top_customers,
     width="stretch",
-    column_config={
-        "Historical AOV (£)": st.column_config.NumberColumn(format="£ %.2f"),
-        "Expected AOV (£)":   st.column_config.NumberColumn(format="£ %.2f"),
-        clv_col:              st.column_config.NumberColumn(format="£ %.2f"),
-        pred_col:             st.column_config.NumberColumn(format="%.2f"),
-        "P(active)":          st.column_config.ProgressColumn(format="%.0%", min_value=0, max_value=1),
-    },
+    column_config=col_cfg,
     hide_index=True,
 )
 
@@ -457,6 +663,8 @@ export = summary.copy()
 export["weeks_since_last_purchase"] = (export["T"] - export["recency"]).clip(lower=0)
 export = export.drop(columns=["recency"])
 export.columns = [c.replace("_", " ").title() for c in export.columns]
+if use_mcmc:
+    export = export.rename(columns={"Clv P05": "CLV 5th Pct (£)", "Clv P95": "CLV 95th Pct (£)"})
 csv = export.to_csv(index=False)
 
 st.download_button(

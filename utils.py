@@ -112,7 +112,7 @@ def load_data():
 
 @st.cache_data
 def load_raw_count():
-    raw = pd.read_excel("data/online_retail.xlsx", engine="openpyxl")
+    raw = pd.read_excel("data/online_retail.xlsx", engine="openpyxl", usecols=[0])
     return len(raw)
 
 
@@ -165,7 +165,7 @@ def elbow_data(rfm_raw, winsorise=True, max_segments=6):
 
     _, X = transform_rfm(rfm)
 
-    max_k = min(len(SEGMENT_LABELS), len(rfm_raw) - 1)
+    max_k = min(len(SEGMENT_LABELS), len(rfm) - 1)
     if max_k < 2:
         return [], [], []
 
@@ -233,9 +233,6 @@ def build_clv_summary(df):
         time_unit="W",
     )
 
-    # GammaGamma requires at least one repeat purchase and positive spend
-    summary = summary[summary["frequency"] > 0].copy()
-    summary = summary[summary["monetary_value"] > 0].copy()
     return summary.reset_index(drop=True)
 
 
