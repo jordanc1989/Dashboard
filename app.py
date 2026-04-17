@@ -1,10 +1,11 @@
 import streamlit as st
-from utils import load_data, apply_sidebar_filters
+
+from utils import apply_sidebar_filters, load_data
 
 st.set_page_config(
     page_title="Customer Analytics Dashboard",
     page_icon="📊",
-    layout="wide"
+    layout="wide",
 )
 
 df = load_data()
@@ -28,5 +29,5 @@ Use the sidebar to navigate between pages and filter data by country or date ran
 | 🧩 RFM Segmentation | K-Means customer segmentation using Recency, Frequency & Monetary value |
 | 🔄 Cohort Retention | Monthly cohort retention heatmap and curves |
 | 💰 CLV Prediction | Predicted customer lifetime value and retention curves |
-| 🔮 Revenue Forecasting | Time-series forecasts of future revenue (SARIMA / Holt-Winters) |
+| 🔮 Revenue Forecasting | Time-series forecasts of future revenue (SARIMA / Theta) |
 """)

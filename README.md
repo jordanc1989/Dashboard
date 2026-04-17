@@ -41,14 +41,14 @@ Place the Excel file at:
 ### 4) Run the app
 
 ```bash
-streamlit run Home.py
+streamlit run app.py
 ```
 
 ## Project Structure
 
 ```text
 .
-├── Home.py
+├── app.py
 ├── pages/
 │   ├── 1_Overview.py
 │   ├── 2_RFM_Segmentation.py
