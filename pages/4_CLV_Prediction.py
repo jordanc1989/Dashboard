@@ -107,10 +107,10 @@ if winsorise_monetary:
 
 @st.cache_resource
 def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
-    bgm = BetaGeoModel(data=_data)
+    bgm = BetaGeoModel()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        fit_kwargs = {"method": method}
+        fit_kwargs = {"method": method, "data": _data}
         if method == "mcmc":
             try:
                 import nutpie  # noqa: F401
@@ -119,16 +119,16 @@ def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
                 pass
         bgm.fit(**fit_kwargs)
     if method == "mcmc":
-        bgm.thin_fit_result(keep_every=2)  # Reduces memory / prediction cost at the expense of slightly less smooth posteriors.
+        bgm = bgm.thin_fit_result(keep_every=2)  # Reduces memory / prediction cost at the expense of slightly less smooth posteriors.
     return bgm
 
 
 @st.cache_resource
 def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
-    ggm = GammaGammaModel(data=_data)
+    ggm = GammaGammaModel()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        fit_kwargs = {"method": method}
+        fit_kwargs = {"method": method, "data": _data}
         if method == "mcmc":
             try:
                 import nutpie  # noqa: F401
@@ -137,7 +137,7 @@ def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
                 pass
         ggm.fit(**fit_kwargs)
     if method == "mcmc":
-        ggm.thin_fit_result(keep_every=2)
+        ggm = ggm.thin_fit_result(keep_every=2)
     return ggm
 
 

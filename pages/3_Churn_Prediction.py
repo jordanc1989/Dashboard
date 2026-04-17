@@ -306,7 +306,7 @@ with left:
         y="Feature",
         orientation="h",
         title="Feature Importance (Gini)",
-        color_discrete_sequence=["#B85F3D"],
+        color_discrete_sequence=["#E98F3D"],
     )
     fig_imp.update_layout(
         yaxis=dict(categoryorder="total ascending"),

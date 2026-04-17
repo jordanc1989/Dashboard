@@ -44,6 +44,39 @@ SEGMENT_LABELS = [
     "At Risk"
 ]
 
+# Shared retail CSV hygiene: non-product / fee lines and dubious geography labels.
+INVALID_RETAIL_COUNTRIES = [
+    "European Community",
+    "Korea",
+    "West Indies",
+    "Unspecified",
+]
+DESCRIPTION_NOISE_TERMS = [
+    "POSTAGE",
+    "DOTCOM",
+    "BANK CHARGES",
+    "MANUAL",
+    "AMAZONFEE",
+    "CRUK",
+    "SAMPLES",
+    "TEST",
+]
+
+
+def _retail_csv_line_filters(df):
+    """Drop fee/adjustment-style lines and invalid rows. Expects Invoice/StockCode as str."""
+    out = df.copy()
+    out["Country"] = out["Country"].replace({"EIRE": "Ireland"})
+    out = out[~out["Country"].isin(INVALID_RETAIL_COUNTRIES)]
+    out = out.dropna(subset=["Description"])
+    out = out[out["Description"] != "Adjust bad debt"]
+    # Remove rows that contain 'Adjustment' in the Description column
+    out = out[~out["Description"].str.contains("Adjustment", na=False)]
+    pattern = "|".join(DESCRIPTION_NOISE_TERMS)
+    out = out[~out["Description"].str.upper().str.contains(pattern, na=False)]
+    out = out[~out["StockCode"].str.upper().str.startswith("POST")]
+    return out
+
 
 def assign_segment_labels(rfm):
     stats = rfm.groupby("Cluster")[["Recency", "Frequency", "Monetary"]].mean()
@@ -63,13 +96,7 @@ def load_data():
     df["Invoice"] = df["Invoice"].astype(str)
     df["StockCode"] = df["StockCode"].astype(str)
 
-    df["Country"] = df["Country"].replace({"EIRE": "Ireland"})
-
-    noise_terms = ["POSTAGE", "DOTCOM", "BANK CHARGES", "MANUAL",
-                   "AMAZONFEE", "CRUK", "SAMPLES", "TEST"]
-    pattern = "|".join(noise_terms)
-    df = df[~df["Description"].str.upper().str.contains(pattern, na=False)]
-    df = df.dropna(subset=["Description"])
+    df = _retail_csv_line_filters(df)
 
     cancel_mask = df["Invoice"].str.startswith("C")
     cancels = df[cancel_mask].copy()
@@ -104,7 +131,8 @@ def load_data():
     df = df.drop_duplicates()
 
     df["Revenue"] = df["Quantity"] * df["Price"]
-    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"], errors="coerce")
+    df = df.dropna(subset=["InvoiceDate"])
     df["Month"] = df["InvoiceDate"].dt.to_period("M").astype(str)
 
     return df
@@ -120,23 +148,20 @@ def load_raw_count():
 def load_cancels():
     """Load only cancel (return) invoices, which `load_data` strips out.
 
-    Mirrors the noise-description filter applied in `load_data` so the set of
-    considered transactions is consistent. Returned columns: Customer ID,
-    InvoiceDate, Invoice.
+    Uses `_retail_csv_line_filters` like `load_data` so cancel counts stay
+    comparable. Returned columns: Customer ID, InvoiceDate, Invoice.
     """
     df = pd.read_csv("data/online_retail_II.csv")
     df["Invoice"] = df["Invoice"].astype(str)
+    df["StockCode"] = df["StockCode"].astype(str)
 
-    noise_terms = ["POSTAGE", "DOTCOM", "BANK CHARGES", "MANUAL",
-                   "AMAZONFEE", "CRUK", "SAMPLES", "TEST"]
-    pattern = "|".join(noise_terms)
-    df = df[~df["Description"].str.upper().str.contains(pattern, na=False)]
-    df = df.dropna(subset=["Description"])
+    df = _retail_csv_line_filters(df)
 
     df = df[df["Invoice"].str.startswith("C")]
     df = df.dropna(subset=["Customer ID"])
     df["Customer ID"] = df["Customer ID"].astype("Int64").astype("string")
-    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"], errors="coerce")
+    df = df.dropna(subset=["InvoiceDate"])
     return df[["Customer ID", "InvoiceDate", "Invoice"]]
 
 
