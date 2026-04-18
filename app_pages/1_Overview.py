@@ -100,7 +100,6 @@ fig_line = go.Figure(go.Scatter(
     fillcolor="rgba(184,95,61,0.12)",
 ))
 fig_line.update_layout(
-    title="Monthly revenue trend",
     yaxis_title="Revenue (£)",
     yaxis_tickprefix="£",
     yaxis_tickformat=",",

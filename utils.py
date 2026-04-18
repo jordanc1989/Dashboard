@@ -103,6 +103,11 @@ def render_dataset_subtitle(df: pd.DataFrame) -> None:
 
 _PAGE_CHROME_CSS = """
 <style>
+/* Prevent text highlighting when expanding/collapsing Streamlit expanders */
+summary {
+    user-select: none;
+}
+
 /* Keep the big page title flush against its eyebrow badge so the header
    block reads as one unit (eyebrow → title → lede → accent rule). */
 div[data-testid="stVerticalBlock"] div.page-header-block h1 {
@@ -256,7 +261,7 @@ def render_page_header(
         if df is not None and len(df):
             st.html(
                 '<p class="page-header-meta" style="text-align:right;">'
-                f':material/database: UCI Online Retail II · '
+                f'UCI Online Retail II · '
                 f'{df["InvoiceDate"].min():%b %Y} - {df["InvoiceDate"].max():%b %Y}'
                 '</p>'
             )
@@ -448,7 +453,7 @@ def run_clustering(rfm_raw, n_clusters, winsorise=True):
 
 
 @st.cache_data(max_entries=16)
-def elbow_data(rfm_raw, winsorise=True):
+def elbow_data(rfm_raw, winsorise=True, max_segments=6):
     rfm = rfm_raw.copy()
 
     if winsorise:

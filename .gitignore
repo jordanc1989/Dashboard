@@ -5,3 +5,5 @@ __pycache__/
 .devcontainer/
 .vscode/
 .cursor/
+.agents/
+.agent/
