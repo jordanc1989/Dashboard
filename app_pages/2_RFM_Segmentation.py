@@ -14,6 +14,8 @@ from utils import (
     SEGMENT_COLORS,
     SEGMENT_LABELS,
     render_dataset_subtitle,
+    NEUTRAL_RADAR_GRID,
+    finalize_fig,
 )
 
 st.set_page_config(
@@ -88,6 +90,7 @@ else:
                 xaxis_title="k",
                 yaxis_title="Inertia"
             )
+            finalize_fig(fig_elbow)
             st.plotly_chart(fig_elbow, width="stretch")
 
         with c2:
@@ -104,6 +107,7 @@ else:
                 xaxis_title="k",
                 yaxis_title="Score"
             )
+            finalize_fig(fig_sil)
             st.plotly_chart(fig_sil, width="stretch")
 
     # ── k selector ──────────────────────────────────────────────────────
@@ -181,6 +185,7 @@ else:
             opacity=0.65,
         )
         fig_scatter.update_yaxes(tickprefix="£", tickformat=",")
+        finalize_fig(fig_scatter)
         st.plotly_chart(fig_scatter, width="stretch")
 
     with col_b:
@@ -196,6 +201,7 @@ else:
         )
         fig_box.update_layout(showlegend=False)
         fig_box.update_yaxes(tickprefix="£", tickformat=",")
+        finalize_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
 
     # ── Radar chart: normalised RFM means per segment ───────────────────
@@ -231,12 +237,13 @@ else:
 
     fig_radar.update_layout(
         polar=dict(
-            radialaxis=dict(visible=True, range=[0, 1], gridcolor="#E5E7EB"),
-            angularaxis=dict(gridcolor="#E5E7EB"),
-            bgcolor="rgba(249,250,251,0.6)",
+            radialaxis=dict(visible=True, range=[0, 1], gridcolor=NEUTRAL_RADAR_GRID),
+            angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
+            bgcolor="rgba(253,253,248,0.55)",
         ),
         title="Normalised RFM Profile per Segment",
     )
+    finalize_fig(fig_radar)
     st.plotly_chart(fig_radar, width="stretch")
 
     # ── Download ────────────────────────────────────────────────────────

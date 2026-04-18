@@ -19,30 +19,35 @@ PAGE_CARDS = [
         "app_pages/1_Overview.py",
         "Overview",
         "Revenue trends, top countries & products, KPIs",
+        "Exploration",
     ),
     (
         ":material/hub:",
         "app_pages/2_RFM_Segmentation.py",
         "RFM Segmentation",
         "K-Means customer segmentation using Recency, Frequency & Monetary value",
+        "Segmentation",
     ),
     (
         ":material/trending_down:",
         "app_pages/3_Churn_Prediction.py",
         "Churn Prediction",
         "Predicted customer churn using Random Forest",
+        "Classification",
     ),
     (
         ":material/payments:",
         "app_pages/4_CLV_Prediction.py",
         "CLV Prediction",
         "Predicted customer lifetime value and retention curves",
+        "CLV",
     ),
     (
         ":material/show_chart:",
         "app_pages/5_Revenue_Forecasting.py",
         "Revenue Forecasting",
         "Time-series forecasts of future revenue (SARIMA / Theta)",
+        "Forecasting",
     ),
 ]
 
@@ -57,10 +62,18 @@ def home_page():
         "Use the sidebar to navigate between pages and filter data by country or date range."
     )
 
-    for icon, page_path, title, desc in PAGE_CARDS:
-        with st.container(border=True):
-            st.page_link(page_path, label=title, icon=icon)
-            st.caption(desc)
+    for row in range(0, len(PAGE_CARDS), 2):
+        col_left, col_right = st.columns(2)
+        for col, j in ((col_left, 0), (col_right, 1)):
+            idx = row + j
+            if idx >= len(PAGE_CARDS):
+                break
+            icon, page_path, title, desc, badge = PAGE_CARDS[idx]
+            with col:
+                with st.container(border=True):
+                    st.badge(badge)
+                    st.page_link(page_path, label=title, icon=icon)
+                    st.caption(desc)
 
 
 navigation = st.navigation(

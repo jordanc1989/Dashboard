@@ -23,10 +23,12 @@ from sklearn.model_selection import (
 from utils import (
     CHART_COLORWAY,
     COLOR_SCALE_EXPECTED_PURCHASES,
+    NEUTRAL_GRID,
     apply_sidebar_filters,
     build_churn_dataset,
     load_data,
     render_dataset_subtitle,
+    finalize_fig,
 )
 
 st.set_page_config(
@@ -319,6 +321,7 @@ with left:
         yaxis=dict(categoryorder="total ascending"),
         xaxis_title="Importance",
     )
+    finalize_fig(fig_imp)
     st.plotly_chart(fig_imp, width="stretch")
 
 with right:
@@ -354,7 +357,7 @@ with right:
             y=[0, 1],
             mode="lines",
             name="Chance",
-            line=dict(color="#9CA3AF", width=1, dash="dash"),
+            line=dict(color=NEUTRAL_GRID, width=1, dash="dash"),
             showlegend=False,
         ),
         row=1,
@@ -385,8 +388,8 @@ with right:
             x=0.5,
         ),
         height=380,
-        plot_bgcolor="rgba(249,250,251,0.6)",
     )
+    finalize_fig(fig_roc)
     st.caption(
         "Left: ROC trades off false positives vs true positives at varying thresholds. "
         "Right: precision vs recall at the same probabilities (better for imbalanced churn rates)."
@@ -407,6 +410,7 @@ fig_cm = px.imshow(
 )
 fig_cm.update_coloraxes(showscale=False)
 fig_cm.update_xaxes(side="bottom")
+finalize_fig(fig_cm)
 _pad_l, cm_col, _pad_r = st.columns([3, 4, 3])
 with cm_col:
     st.plotly_chart(fig_cm, width="stretch")

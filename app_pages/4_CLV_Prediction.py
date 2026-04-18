@@ -10,10 +10,12 @@ from pymc_marketing.clv.utils import rfm_train_test_split
 from utils import (
     COLOR_SCALE_EXPECTED_PURCHASES,
     COLOR_SCALE_P_ALIVE,
+    NEUTRAL_GRID,
     load_data,
     apply_sidebar_filters,
     build_clv_summary,
     render_dataset_subtitle,
+    finalize_fig,
 )
 
 WEEKS_PER_MONTH = 4.345  # 365.25 / 12 / 7
@@ -334,7 +336,7 @@ with st.expander("Out-of-sample validation: BG/NBD model", expanded=False):
         fig_val.add_trace(go.Scatter(
             x=[0, max_val], y=[0, max_val],
             mode="lines", name="Perfect prediction",
-            line=dict(color="#9CA3AF", width=1.5, dash="dash"),
+            line=dict(color=NEUTRAL_GRID, width=1.5, dash="dash"),
         ))
         fig_val.add_trace(go.Scatter(
             x=binned["predicted"], y=binned["actual"],
@@ -351,6 +353,7 @@ with st.expander("Out-of-sample validation: BG/NBD model", expanded=False):
             yaxis_title="Mean actual purchases",
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
+        finalize_fig(fig_val)
         st.plotly_chart(fig_val, width="stretch")
 
 
@@ -448,7 +451,7 @@ with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=F
         fig_gg_val.add_trace(go.Scatter(
             x=[0, spend_cap], y=[0, spend_cap],
             mode="lines", name="Perfect prediction",
-            line=dict(color="#9CA3AF", width=1.5, dash="dash"),
+            line=dict(color=NEUTRAL_GRID, width=1.5, dash="dash"),
         ))
         fig_gg_val.add_trace(go.Scatter(
             x=plot_gg["predicted_spend"],
@@ -464,6 +467,7 @@ with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=F
             yaxis=dict(title="Actual holdout mean spend (£)", tickprefix="£", tickformat=","),
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
+        finalize_fig(fig_gg_val)
         st.plotly_chart(fig_gg_val, width="stretch")
         if n_clipped > 0:
             st.caption(
@@ -528,6 +532,7 @@ with col_d1:
         "Scale: lighter = fewer expected purchases in the horizon; darker blue = more "
         "(brand-aligned sequential scale)."
     )
+    finalize_fig(fig_fr)
     st.plotly_chart(fig_fr, width="stretch")
 
 with col_d2:
@@ -563,6 +568,7 @@ with col_d2:
         "Scale: brown = lower P(active); neutral mid-tone; green = higher P(active). "
         "Same frequency × recency grid as the chart on the left."
     )
+    finalize_fig(fig_alive)
     st.plotly_chart(fig_alive, width="stretch")
 
 # ── CLV distribution ───────────────────────────────────────────────────────────
@@ -584,6 +590,7 @@ with col_h1:
     fig_hist.update_traces(xbins=dict(start=0, end=x_cap * 1.02, size=bin_size))
     fig_hist.update_xaxes(tickprefix="£", tickformat=",")
     fig_hist.update_layout(showlegend=False)
+    finalize_fig(fig_hist)
     st.plotly_chart(fig_hist, width="stretch")
     if n_above > 0:
         st.caption(f"{n_above} customer{'s' if n_above > 1 else ''} above £{x_cap:,.0f} (99th percentile) not shown.")
@@ -605,7 +612,7 @@ with col_h2:
     fig_lorenz.add_trace(go.Scatter(
         x=[0, 100], y=[0, 100],
         mode="lines", name="Perfect equality",
-        line=dict(color="#9CA3AF", width=1.5, dash="dash"),
+        line=dict(color=NEUTRAL_GRID, width=1.5, dash="dash"),
     ))
     fig_lorenz.add_annotation(
         x=85, y=30,
@@ -619,6 +626,7 @@ with col_h2:
         yaxis_title="Cumulative % of total CLV",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
+    finalize_fig(fig_lorenz, unified_hover=True)
     st.plotly_chart(fig_lorenz, width="stretch")
 
 # ── Top customers ──────────────────────────────────────────────────────────────

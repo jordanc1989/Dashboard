@@ -51,6 +51,22 @@ pio.templates["portfolio"] = go.layout.Template(
 )
 pio.templates.default = "plotly+portfolio"
 
+# Warm neutrals for reference lines and grid chrome (matches theme, not cool Tailwind grays)
+NEUTRAL_GRID = "#948A78"
+NEUTRAL_RADAR_GRID = "#CEC9BC"
+
+
+def finalize_fig(fig, *, unified_hover: bool = False, uirevision: str | None = None):
+    """Apply shared Plotly layout so all charts use the portfolio template consistently."""
+    kwargs: dict = {"template": "plotly+portfolio"}
+    if unified_hover:
+        kwargs["hovermode"] = "x unified"
+    if uirevision is not None:
+        kwargs["uirevision"] = uirevision
+    fig.update_layout(**kwargs)
+    return fig
+
+
 SEGMENT_COLORS = {
     "Champions":           "#B85F3D",
     "Loyal Customers":     "#2E7D68",
@@ -438,21 +454,23 @@ def build_clv_summary(df):
 
 
 def apply_sidebar_filters(df):
-    st.sidebar.title("Filters")
-    countries = ["All"] + sorted(df["Country"].unique().tolist())
-    selected_country = st.sidebar.selectbox("Country", countries)
-    if selected_country != "All":
-        df = df[df["Country"] == selected_country]
+    st.sidebar.markdown("### Filters")
+    st.sidebar.divider()
+    with st.sidebar.expander("Data scope", expanded=True):
+        countries = ["All"] + sorted(df["Country"].unique().tolist())
+        selected_country = st.selectbox("Country", countries)
+        if selected_country != "All":
+            df = df[df["Country"] == selected_country]
 
-    min_date = df["InvoiceDate"].min().date()
-    max_date = df["InvoiceDate"].max().date()
-    date_range = st.sidebar.date_input(
-        "Date range",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date,
-        help="Filter transactions by invoice date. RFM and cohort analyses will update accordingly."
-    )
+        min_date = df["InvoiceDate"].min().date()
+        max_date = df["InvoiceDate"].max().date()
+        date_range = st.date_input(
+            "Date range",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            help="Filter transactions by invoice date. RFM and cohort analyses will update accordingly.",
+        )
     if len(date_range) == 2:
         df = df[
             (df["InvoiceDate"].dt.date >= date_range[0]) &

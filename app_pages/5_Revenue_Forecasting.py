@@ -8,7 +8,14 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning
 from statsmodels.tsa.forecasting.theta import ThetaModel
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-from utils import apply_sidebar_filters, build_revenue_series, load_data, render_dataset_subtitle
+from utils import (
+    NEUTRAL_GRID,
+    apply_sidebar_filters,
+    build_revenue_series,
+    load_data,
+    render_dataset_subtitle,
+    finalize_fig,
+)
 
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
 warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
@@ -409,6 +416,7 @@ fig.update_layout(
     ),
     hovermode="x unified",
 )
+finalize_fig(fig, unified_hover=True)
 st.plotly_chart(fig, width="stretch")
 
 
@@ -422,7 +430,7 @@ with st.expander("Residual diagnostics"):
             mode="lines",
             line=dict(color="#2E7D68", width=1.5),
         ))
-        fig_r.add_hline(y=0, line=dict(color="#999", width=1, dash="dot"))
+        fig_r.add_hline(y=0, line=dict(color=NEUTRAL_GRID, width=1, dash="dot"))
         fig_r.update_layout(
             title="Residuals over time",
             yaxis_title="Residual (£)",
@@ -430,6 +438,7 @@ with st.expander("Residual diagnostics"):
             yaxis_tickformat=",",
             showlegend=False,
         )
+        finalize_fig(fig_r, unified_hover=True)
         st.plotly_chart(fig_r, width="stretch")
 
     with d2:
@@ -444,6 +453,7 @@ with st.expander("Residual diagnostics"):
             yaxis_title="Count",
             showlegend=False,
         )
+        finalize_fig(fig_h)
         st.plotly_chart(fig_h, width="stretch")
 
     st.caption(summary_caption)
@@ -451,19 +461,22 @@ with st.expander("Residual diagnostics"):
 
 # ── Forecast table ────────────────────────────────────────────────────
 with st.expander("Forecast values"):
-    def fmt_gbp(x: float) -> str:
-        x = float(x)
-        return f"-£{abs(x):,.0f}" if x < 0 else f"£{x:,.0f}"
-
     fc_table = pd.DataFrame({
         "Period": future_mean.index.strftime("%Y-%m-%d"),
-        "Forecast (£)": future_mean.values,
-        "Lower 90% (£)": future_lo.values,
-        "Upper 90% (£)": future_hi.values,
+        "Forecast (£)": future_mean.values.astype(float),
+        "Lower 90% (£)": future_lo.values.astype(float),
+        "Upper 90% (£)": future_hi.values.astype(float),
     })
-    for col in ["Forecast (£)", "Lower 90% (£)", "Upper 90% (£)"]:
-        fc_table[col] = fc_table[col].map(fmt_gbp)
-    st.dataframe(fc_table, width="stretch", hide_index=True)
+    st.dataframe(
+        fc_table,
+        width="stretch",
+        hide_index=True,
+        column_config={
+            "Forecast (£)": st.column_config.NumberColumn(format="£%.0f"),
+            "Lower 90% (£)": st.column_config.NumberColumn(format="£%.0f"),
+            "Upper 90% (£)": st.column_config.NumberColumn(format="£%.0f"),
+        },
+    )
 
 
 st.caption(

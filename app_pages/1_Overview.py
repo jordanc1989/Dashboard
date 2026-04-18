@@ -8,6 +8,7 @@ from utils import (
     load_raw_count,
     apply_sidebar_filters,
     render_dataset_subtitle,
+    finalize_fig,
 )
 
 st.set_page_config(
@@ -100,6 +101,7 @@ fig_line.update_layout(
     yaxis_tickformat=",",
     showlegend=False,
 )
+finalize_fig(fig_line, unified_hover=True)
 st.plotly_chart(fig_line, width='stretch')
 
 col_left, col_right = st.columns(2)
@@ -115,6 +117,7 @@ with col_left:
     )
     fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"))
     fig_bar.update_xaxes(tickprefix="£", tickformat=",")
+    finalize_fig(fig_bar)
     st.plotly_chart(fig_bar, width='stretch')
 
 with col_right:
@@ -129,7 +132,17 @@ with col_right:
     )
     fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"))
     fig_prod.update_xaxes(tickprefix="£", tickformat=",")
+    finalize_fig(fig_prod)
     st.plotly_chart(fig_prod, width='stretch')
 
 with st.expander("View raw data sample"):
-    st.dataframe(df.head(500), width='stretch')
+    st.dataframe(
+        df.head(500),
+        width="stretch",
+        column_config={
+            "Revenue": st.column_config.NumberColumn(format="£ %.2f"),
+            "Price": st.column_config.NumberColumn(format="£ %.2f"),
+            "Quantity": st.column_config.NumberColumn(format="%,d"),
+            "InvoiceDate": st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm"),
+        },
+    )
