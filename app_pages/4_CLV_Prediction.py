@@ -16,7 +16,7 @@ from utils import (
     build_clv_summary,
     render_page_header,
     section,
-    finalize_fig,
+    finalise_fig,
 )
 
 WEEKS_PER_MONTH = 4.345  # 365.25 / 12 / 7
@@ -44,8 +44,8 @@ probability (Geometric). It takes three inputs per customer:
 - **Recency** — weeks since their last purchase
 - **T** — total weeks since their first purchase (customer age)
 
-It outputs **expected future transactions** over a chosen time window and **probability the
-customer is still active** ("alive").
+It outputs expected future transactions (over a chosen time window), and the probability the
+customer is still active (i.e. "alive").
 
 **Gamma-Gamma model** takes customers with at least one repeat purchase and models the
 distribution of average spend, assuming spend is independent of purchase frequency.
@@ -90,7 +90,7 @@ with st.container(border=True):
         use_mcmc = st.toggle(
             "MCMC sampling",
             value=False,
-            help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes ~1-2 minutes to run. Results cached after the first run.",
+            help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes a few minutes to run. Results cached after the first run.",
         )
 
 if use_mcmc and not st.session_state.get("_mcmc_toast_shown"):
@@ -102,7 +102,7 @@ if not use_mcmc:
 horizon_weeks = horizon_months * WEEKS_PER_MONTH
 fit_method    = "mcmc" if use_mcmc else "map"
 
-# ── Fit models ─────────────────────────────────────────────────────────────────
+# ── Fit models ────────────────
 bg_data = summary[summary["frequency"] > 0][["customer_id", "frequency", "recency", "T"]].copy()
 gg_data = summary[(summary["frequency"] > 0) & (summary["monetary_value"] > 0)][["customer_id", "frequency", "monetary_value"]].copy()
 
@@ -156,7 +156,7 @@ with st.spinner(spinner_msg):
     bgm = fit_bgnbd(_df_hash(bg_data), fit_method, bg_data)
     ggm = fit_gg(_df_hash(gg_data), fit_method, gg_data)
 
-# ── Gamma-Gamma independence assumption check ──────────────────────────────────
+# ── Gamma-Gamma independence assumption check ────────────
 fm_corr = gg_data[["frequency", "monetary_value"]].corr().iloc[0, 1]
 if abs(fm_corr) > 0.3:
     st.warning(
@@ -230,7 +230,7 @@ if use_mcmc:
 
 summary = summary.reset_index()  # restore customer_id as a plain column
 
-# ── KPIs ───────────────────────────────────────────────────────────────────────
+# ── KPIs ─────────────────────────────────────────
 st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
@@ -265,7 +265,7 @@ with st.container(horizontal=True):
         border=True,
     )
 
-# ── Out-of-sample validation ───────────────────────────────────────────────────
+# ── Out-of-sample validation ────────────────
 @st.cache_data
 def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
@@ -316,7 +316,7 @@ with st.expander(
 ):
     st.markdown(
         "Model performance is evaluated by withholding the last 25% of the observation window, "
-        "fitting BG/NBD (MAP) only on the earlier 75%, and predicting the number of purchases each "
+        "fitting BG/NBD only on the earlier 75% (via MAP) and predicting the number of purchases each "
         "customer will make in the holdout. The chart bins customers by their frequency in the "
         "calibration period and plots predicted vs. actual mean purchases in the holdout. "
         "Close alignment with the dashed y=x line indicates the model is well-calibrated. "
@@ -368,11 +368,11 @@ with st.expander(
             yaxis_title="Mean actual purchases",
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
-        finalize_fig(fig_val)
+        finalise_fig(fig_val)
         st.plotly_chart(fig_val, width="stretch")
 
 
-# ── GG out-of-sample validation ────────────────────────────────────────────────
+# ── GG out-of-sample validation ─────────────
 @st.cache_data
 def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
@@ -397,7 +397,7 @@ def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None
 
     ch_gg = ch[(ch["frequency"] > 0) & (ch["monetary_value"] > 0)].copy()
 
-    # Actual mean spend per transaction in holdout, for customers who purchased in both periods
+    # Actual mean spend per transaction in holdout for customers who purchased in both periods
     holdout_spend = (
         invoices[invoices["InvoiceDate"] > cal_end]
         .groupby("Customer ID")["Revenue"]
@@ -433,11 +433,11 @@ with st.expander(
 ):
     st.markdown(
         "The Gamma-Gamma model is validated using the same 75/25 time split. "
-        "It is fitted on calibration-period transactions, and its predicted average order value "
+        "It is fitted on calibration-period transactions (using MAP) and its predicted average order value "
         "is compared against each customer's actual mean spend in the holdout period. "
-        "Only customers who purchased in both periods are included, since we need actuals to "
+        "Only customers who purchased in both periods are included since we need actuals to "
         "compare against. The closer points cluster around the dashed y=x line, the better "
-        "the model's spend predictions. MAP is always used for validation."
+        "the model's spend predictions."
     )
 
     gg_validation = run_gg_holdout_validation(_df_hash(df_customers), df_customers)
@@ -486,7 +486,7 @@ with st.expander(
             yaxis=dict(title="Actual holdout mean spend (£)", tickprefix="£", tickformat=","),
             legend=dict(orientation="h", yanchor="bottom", y=1.02),
         )
-        finalize_fig(fig_gg_val)
+        finalise_fig(fig_gg_val)
         st.plotly_chart(fig_gg_val, width="stretch")
         if n_clipped > 0:
             st.caption(
@@ -505,7 +505,7 @@ with col_d1:
     st.markdown(
         "Frequent buyers who purchased recently (bottom-left) are predicted to buy most. "
         "Frequent buyers who haven't purchased in a long time (bottom-right) "
-        "are likely churned and the model predicts far fewer future purchases."
+        "are likely churned and the model should predict far fewer future purchases."
     )
 
     t_val    = float(summary["T"].median())
@@ -552,15 +552,15 @@ with col_d1:
         "Scale: lighter = fewer expected purchases in the horizon; darker blue = more "
         "(brand-aligned sequential scale)."
     )
-    finalize_fig(fig_fr)
+    finalise_fig(fig_fr)
     st.plotly_chart(fig_fr, width="stretch")
 
 with col_d2:
-    st.markdown("**Probability alive matrix** — likelihood each customer is still active")
+    st.markdown("**Probability alive matrix**: likelihood each customer is still active")
     st.markdown(
         "Customers who purchased recently (left) are most likely still active. "
         "High-frequency customers who haven't purchased in a long time (bottom-right) "
-        "are the most clearly churned — the model is near-certain they've dropped off."
+        "are the most churned — the model should be certain they've dropped off."
     )
 
     with warnings.catch_warnings():
@@ -588,7 +588,7 @@ with col_d2:
         "Scale: brown = lower P(active); neutral mid-tone; green = higher P(active). "
         "Same frequency × recency grid as the chart on the left."
     )
-    finalize_fig(fig_alive)
+    finalise_fig(fig_alive)
     st.plotly_chart(fig_alive, width="stretch")
 
 # ── CLV distribution ───────────────────────────────────────────────────────────
@@ -611,7 +611,7 @@ with col_h1:
     fig_hist.update_traces(xbins=dict(start=0, end=x_cap * 1.02, size=bin_size))
     fig_hist.update_xaxes(tickprefix="£", tickformat=",")
     fig_hist.update_layout(showlegend=False)
-    finalize_fig(fig_hist)
+    finalise_fig(fig_hist)
     st.plotly_chart(fig_hist, width="stretch")
     if n_above > 0:
         st.caption(f"{n_above} customer{'s' if n_above > 1 else ''} above £{x_cap:,.0f} (99th percentile) not shown.")
@@ -647,10 +647,10 @@ with col_h2:
         yaxis_title="Cumulative % of total CLV",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
-    finalize_fig(fig_lorenz, unified_hover=True)
+    finalise_fig(fig_lorenz, unified_hover=True)
     st.plotly_chart(fig_lorenz, width="stretch")
 
-# ── Top customers ──────────────────────────────────────────────────────────────
+# ── Top customers ───────────────
 st.space("small")
 section("Top customers by predicted CLV", eyebrow="Targeting shortlist")
 
@@ -700,7 +700,7 @@ st.dataframe(
     hide_index=True,
 )
 
-# ── Download ───────────────────────────────────────────────────────────────────
+# ── Download ───────────────
 st.space("small")
 section("Export", eyebrow="Download")
 export = summary.copy()

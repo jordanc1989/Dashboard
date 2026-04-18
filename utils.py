@@ -59,7 +59,7 @@ NEUTRAL_GRID = "#948A78"
 NEUTRAL_RADAR_GRID = "#CEC9BC"
 
 
-def finalize_fig(fig, *, unified_hover: bool = False, uirevision: str | None = None):
+def finalise_fig(fig, *, unified_hover: bool = False, uirevision: str | None = None):
     """Apply shared Plotly layout so all charts use the portfolio template consistently."""
     kwargs: dict = {"template": "plotly+portfolio"}
     if unified_hover:
@@ -99,8 +99,7 @@ def render_dataset_subtitle(df: pd.DataFrame) -> None:
 
 # ── Page chrome & shared layout helpers ─────────────────────────────────────
 # Palette + typography already live in .streamlit/config.toml. These helpers
-# add visual hierarchy on top of the native theme — they avoid overriding
-# theme colors so brand changes stay in one place.
+# add visual hierarchy on top of the native theme.
 
 _PAGE_CHROME_CSS = """
 <style>
@@ -258,7 +257,7 @@ def render_page_header(
             st.html(
                 '<p class="page-header-meta" style="text-align:right;">'
                 f':material/database: UCI Online Retail II · '
-                f'{df["InvoiceDate"].min():%b %Y} – {df["InvoiceDate"].max():%b %Y}'
+                f'{df["InvoiceDate"].min():%b %Y} - {df["InvoiceDate"].max():%b %Y}'
                 '</p>'
             )
 
@@ -449,7 +448,7 @@ def run_clustering(rfm_raw, n_clusters, winsorise=True):
 
 
 @st.cache_data(max_entries=16)
-def elbow_data(rfm_raw, winsorise=True, max_segments=6):
+def elbow_data(rfm_raw, winsorise=True):
     rfm = rfm_raw.copy()
 
     if winsorise:
@@ -531,7 +530,7 @@ def build_churn_dataset(df, churn_window_days=90):
       cutoff = max_invoice_date - churn_window_days
 
     A registered customer who was active on or before `cutoff` is labelled
-    **churned = 1** if they made no purchase in `(cutoff, max_date]`, else 0.
+    **churned = 1** if they made no purchase in `(cutoff, max_date]` else 0.
     Features are computed strictly from transactions at or before the cutoff
     to avoid look-ahead leakage.
 

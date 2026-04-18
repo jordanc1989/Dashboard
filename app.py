@@ -37,7 +37,7 @@ def _render_hero(df: pd.DataFrame) -> None:
     st.title("Customer analytics dashboard", anchor=False)
     st.html(
         '<p class="page-hero-tagline">'
-        'Interactive modules for exploring a two-year UK online retail '
+        'Interactive modules for exploring a two-year UK-based online retail '
         'dataset, from headline revenue KPIs to probabilistic CLV and time-series revenue forecasts.'
         '</p>'
     )
@@ -45,7 +45,7 @@ def _render_hero(df: pd.DataFrame) -> None:
 
 
 def _render_glance(df: pd.DataFrame) -> None:
-    """Four at-a-glance KPIs so the home page isn't just navigation."""
+    """Four at-a-glance KPIs"""
     total_revenue = float(df["Revenue"].sum())
     n_customers = int(df["Customer ID"].nunique())
     n_orders = int(df["Invoice"].nunique())

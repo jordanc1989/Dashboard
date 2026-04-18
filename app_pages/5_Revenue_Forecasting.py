@@ -1,5 +1,4 @@
 import warnings
-
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -15,7 +14,7 @@ from utils import (
     load_data,
     render_page_header,
     section,
-    finalize_fig,
+    finalise_fig,
 )
 
 warnings.filterwarnings("ignore", category=ConvergenceWarning)
@@ -34,7 +33,7 @@ df = apply_sidebar_filters(df)
 render_page_header("forecast", df)
 
 
-# ── Controls ──────────────────────────────────────────────────────────
+# ── Controls ─────────────
 section("Forecast controls", eyebrow="Frequency, model, horizon")
 with st.container(border=True):
     c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
@@ -45,8 +44,7 @@ with st.container(border=True):
             ["Weekly", "Monthly"],
             index=0,
             help=(
-                "Weekly gives ~109 observations for this dataset — the best "
-                "balance of resolution and sample size. Monthly (~25 points) "
+                "Weekly gives the best balance of resolution and sample size. Monthly "
                 "captures yearly seasonality but with less granularity."
             ),
         )
@@ -79,7 +77,7 @@ with st.container(border=True):
         )
 
 
-# ── Build series ──────────────────────────────────────────────────────
+# ── Build series ───────────────
 series = build_revenue_series(df, freq=freq_code).astype(float)
 
 last_date_in_data = df["InvoiceDate"].max()
@@ -105,7 +103,7 @@ train = series.iloc[: len(series) - holdout] if holdout > 0 else series
 test = series.iloc[len(series) - holdout :] if holdout > 0 else series.iloc[0:0]
 
 
-# ── Model-specific controls ───────────────────────────────────────────
+# ── Model-specific controls ──────────────
 with st.expander(
     "Model parameters",
     expanded=False,
@@ -123,13 +121,13 @@ with st.expander(
             "Trend removal",
             min_value=0, max_value=2, value=1,
             help="Removes the overall upward or downward trend before modelling. "
-                 "1 is correct for most revenue series. 0 = no trend removal, 2 = rarely needed."
+                 "1 is appropriate for most revenue series. 0 = no trend removal, 2 = rarely needed."
         )
         q = cc3.number_input(
             "Shock absorption",
             min_value=0, max_value=5, value=1,
             help="How quickly the model 'forgets' a surprise spike or dip. "
-                 "1 absorbs last period's shock; higher values remember shocks longer."
+                 "1 absorbs last period's shock, higher values remember shocks forlonger."
         )
 
         cc4, cc6, cc7 = st.columns(3)
@@ -152,8 +150,6 @@ with st.expander(
                  "52 for weekly data (one year), 12 for monthly. Set to 0 to disable seasonality."
         )
         st.caption(
-            "This model looks for patterns in recent weeks (p, q) and adjusts for the overall trend (d)."
-            "It also accounts for the same time of year in previous years (Q, s). "
             "Seasonal differencing is fixed to 0 for this dataset (~2 years), because "
             "that is not enough history for stable seasonal differencing."
         )
@@ -167,7 +163,7 @@ with st.expander(
             help=(
                 "Theta method decomposes the series into two theta-lines. "
                 "θ=2 is the classical value. Higher = more weight on short-term "
-                "curvature; θ=1 recovers a simple linear trend."
+                "curvature, θ=1 recovers a simple linear trend."
             ),
         )
         theta_period = default_season
@@ -184,10 +180,10 @@ with st.expander(
             )
         st.caption(
             "The Theta method (Assimakopoulos & Nikolopoulos, 2000) was a top "
-            "performer in the M3 forecasting competition. It combines simple "
+            "performer in the M3 forecasting competition and combines simple "
             "exponential smoothing with drift on two decomposed 'theta-lines' "
-            "and is fast, robust, and surprisingly hard to beat on business data. "
-            f"Deseasonalization uses the model's automatic mode with fixed seasonal period "
+            "and is fast, robust and effective on business data. "
+            f"Deseasonalisation uses the model's automatic mode with a fixed seasonal period "
             f"{theta_period} ({'weekly yearly' if freq_code == 'W' else 'monthly yearly'})."
         )
 
@@ -213,9 +209,9 @@ def sarima_forecast(fitted, n, alpha=0.1):
 
 @st.cache_resource(show_spinner="Fitting Theta model...")
 def fit_theta(y: pd.Series, period: int):
-    deseasonalize = period >= 2 and len(y) >= 2 * period
-    kwargs = dict(deseasonalize=deseasonalize)
-    if deseasonalize:
+    deseasonalise = period >= 2 and len(y) >= 2 * period
+    kwargs = dict(deseasonalise=deseasonalise)
+    if deseasonalise:
         kwargs["period"] = period
         if (y <= 0).any():
             kwargs["method"] = "additive"  # Multiplicative seasonality is undefined for non-positive values.
@@ -269,7 +265,7 @@ def rmse(y_true, y_pred):
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
-# ── Prepare future index ──────────────────────────────────────────────
+# ── Prepare future index ─────────────────────
 freq_offset = pd.tseries.frequencies.to_offset(freq_code)
 future_index = pd.date_range(
     start=series.index[-1] + freq_offset,
@@ -278,7 +274,7 @@ future_index = pd.date_range(
 )
 
 
-# ── Fit models and produce forecasts ──────────────────────────────────
+# ── Fit models and produce forecasts ───────────
 pred_mean = pred_lo = pred_hi = None
 backtest_mape = backtest_rmse = None
 future_mean = future_lo = future_hi = None
@@ -351,7 +347,7 @@ if pred_mean is not None:
     pred_hi = pred_hi.clip(lower=0)
 
 
-# ── KPIs ──────────────────────────────────────────────────────────────
+# ── KPIs ────────────────────────
 st.space("small")
 section("Forecast performance", eyebrow="Backtest & outlook")
 
@@ -374,7 +370,7 @@ with st.container(horizontal=True):
     )
 
 
-# ── Main chart ────────────────────────────────────────────────────────
+# ── Main chart ─────────────
 st.space("small")
 section("Forecast chart", eyebrow=f"{freq_label.lower()} revenue · {model_name}")
 fig = go.Figure()
@@ -429,11 +425,11 @@ fig.update_layout(
     ),
     hovermode="x unified",
 )
-finalize_fig(fig, unified_hover=True)
+finalise_fig(fig, unified_hover=True)
 st.plotly_chart(fig, width="stretch")
 
 
-# ── Residual diagnostics ──────────────────────────────────────────────
+# ── Residual diagnostics ──────────────────
 st.space("small")
 section("Diagnostics & forecast table", eyebrow="Residuals & values")
 with st.expander(
@@ -457,7 +453,7 @@ with st.expander(
             yaxis_tickformat=",",
             showlegend=False,
         )
-        finalize_fig(fig_r, unified_hover=True)
+        finalise_fig(fig_r, unified_hover=True)
         st.plotly_chart(fig_r, width="stretch")
 
     with d2:
@@ -472,13 +468,13 @@ with st.expander(
             yaxis_title="Count",
             showlegend=False,
         )
-        finalize_fig(fig_h)
+        finalise_fig(fig_h)
         st.plotly_chart(fig_h, width="stretch")
 
     st.caption(summary_caption)
 
 
-# ── Forecast table ────────────────────────────────────────────────────
+# ── Forecast table ─────────────────────
 with st.expander(
     "Forecast values",
     expanded=False,

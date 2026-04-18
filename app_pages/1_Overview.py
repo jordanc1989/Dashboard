@@ -9,7 +9,7 @@ from utils import (
     apply_sidebar_filters,
     render_page_header,
     section,
-    finalize_fig,
+    finalise_fig,
 )
 
 st.set_page_config(
@@ -23,7 +23,7 @@ df = apply_sidebar_filters(df)
 
 render_page_header("overview", df)
 
-# ── Data quality summary ──────────────────────────────────────────────
+# ── Data quality summary ───────
 with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
     st.markdown(f"""
@@ -42,7 +42,7 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
-# ── KPI row ───────────────────────────────────────────────────────────
+# ── KPI row ─────────
 section("Headline KPIs", eyebrow="Last 12 months sparkline")
 monthly = df.groupby("Month").agg(
     revenue=("Revenue", "sum"),
@@ -88,7 +88,7 @@ with st.container(horizontal=True):
 
 st.space("small")
 
-# ── Monthly revenue — area chart with spline smoothing ────────────────
+# ── Monthly revenue — area chart with spline smoothing ────────
 section("Revenue trend", eyebrow="Monthly")
 monthly_revenue = df.groupby("Month")["Revenue"].sum().reset_index()
 fig_line = go.Figure(go.Scatter(
@@ -106,7 +106,7 @@ fig_line.update_layout(
     yaxis_tickformat=",",
     showlegend=False,
 )
-finalize_fig(fig_line, unified_hover=True)
+finalise_fig(fig_line, unified_hover=True)
 st.plotly_chart(fig_line, width='stretch')
 
 st.space("small")
@@ -124,7 +124,7 @@ with col_left:
     )
     fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"))
     fig_bar.update_xaxes(tickprefix="£", tickformat=",")
-    finalize_fig(fig_bar)
+    finalise_fig(fig_bar)
     st.plotly_chart(fig_bar, width='stretch')
 
 with col_right:
@@ -139,7 +139,7 @@ with col_right:
     )
     fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"))
     fig_prod.update_xaxes(tickprefix="£", tickformat=",")
-    finalize_fig(fig_prod)
+    finalise_fig(fig_prod)
     st.plotly_chart(fig_prod, width='stretch')
 
 st.space("small")

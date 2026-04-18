@@ -29,7 +29,7 @@ from utils import (
     load_data,
     render_page_header,
     section,
-    finalize_fig,
+    finalise_fig,
 )
 
 st.set_page_config(
@@ -53,16 +53,16 @@ standard workaround for non-contractual retail is a **rolling-window definition*
 2. Let `cutoff = max_invoice_date - churn window`.
 3. For every registered customer active on or before `cutoff`, compute features
    **using only transactions up to `cutoff`** (no look-ahead). 
-4. Label the customer **churned = 1** if they made no purchase in the window, else 0.
+4. Label the customer **churned = 1** if they made no purchase in the window.
 
-This gives a real, held-out ground truth from the data itself. The model is
+This gives a ground truth from the data itself. The model is
 then trained and evaluated on an 80 / 20 stratified split of this labelled set,
 and out-of-fold probabilities are generated for every customer via 5-fold
 cross-validation for the at-risk table below.
         """
     )
 
-# ── Controls ─────────────────────────────────────────────────────────────────
+# ── Controls ──────────────────
 span_days = (df["InvoiceDate"].max() - df["InvoiceDate"].min()).days
 max_window = max(30, min(365, span_days // 3))
 
@@ -169,7 +169,7 @@ X = features[feature_cols].values
 y = features["churned"].values
 
 
-# ── Train / evaluate ─────────────────────────────────────────────────────────
+# ── Train / evaluate ─────────────────────────
 @st.cache_resource(show_spinner="Training random forest...")
 def fit_and_score(
     X,
@@ -250,7 +250,7 @@ rec = recall_score(test_metrics["y_test"], y_pred_test, zero_division=0)
 features = features.assign(churn_prob=oof_probs)
 
 
-# ── KPIs ─────────────────────────────────────────────────────────────────────
+# ── KPIs ──────────────────────
 st.space("small")
 section("Model performance", eyebrow="Churn rate & classifier metrics")
 
@@ -288,7 +288,7 @@ with st.container(horizontal=True):
         "Recall",
         f"{rec:.2f}",
         border=True,
-        help="Of customers who actually churn, how many we catch.",
+        help="Of customers who actually churn, how many does the model catch.",
     )
 
 overfit_gap = test_metrics["train_auc"] - test_metrics["auc"]
@@ -321,7 +321,7 @@ st.caption(
     f"churners: **{int(features['churned'].sum()):,}**"
 )
 
-# ── Feature importance + ROC ─────────────────────────────────────────────────
+# ── Feature importance + ROC ─────────────────
 st.space("small")
 section("Model explainability", eyebrow="Features & curves")
 left, right = st.columns(2)
@@ -342,7 +342,7 @@ with left:
         yaxis=dict(categoryorder="total ascending"),
         xaxis_title="Importance",
     )
-    finalize_fig(fig_imp)
+    finalise_fig(fig_imp)
     st.plotly_chart(fig_imp, width="stretch")
 
 with right:
@@ -357,7 +357,7 @@ with right:
         cols=2,
         subplot_titles=(
             "ROC (hold-out 20%)",
-            "Precision–Recall (hold-out 20%)",
+            "Precision-Recall (hold-out 20%)",
         ),
         horizontal_spacing=0.1,
     )
@@ -410,7 +410,7 @@ with right:
         ),
         height=380,
     )
-    finalize_fig(fig_roc)
+    finalise_fig(fig_roc)
     st.caption(
         "Left: ROC trades off false positives vs true positives at varying thresholds. "
         "Right: precision vs recall at the same probabilities (better for imbalanced churn rates)."
@@ -431,7 +431,7 @@ fig_cm = px.imshow(
 )
 fig_cm.update_coloraxes(showscale=False)
 fig_cm.update_xaxes(side="bottom")
-finalize_fig(fig_cm)
+finalise_fig(fig_cm)
 _pad_l, cm_col, _pad_r = st.columns([3, 4, 3])
 with cm_col:
     st.plotly_chart(fig_cm, width="stretch")

@@ -16,7 +16,7 @@ from utils import (
     render_page_header,
     section,
     NEUTRAL_RADAR_GRID,
-    finalize_fig,
+    finalise_fig,
 )
 
 st.set_page_config(
@@ -58,7 +58,7 @@ else:
                 "reflect the broader customer base rather than a handful of whales."
             )
 
-    # ── Elbow / silhouette chart ────────────────────────────────────────
+    # ── Elbow / silhouette chart ──────────────
     with st.expander(
         "Choose number of clusters (Elbow method)",
         expanded=True,
@@ -67,17 +67,17 @@ else:
         st.markdown("""
         Use these two charts together to choose the right number of customer segments (`k`):
 
-        **Elbow Curve** — shows how tightly packed the clusters are (inertia).
-        Look for the "elbow": the point where the curve bends and the drop in inertia
+        **Elbow Curve:** shows how tightly packed the clusters are (inertia).
+        Look for the "elbow", the point where the curve bends and the drop 
         starts to flatten out. Adding more clusters beyond this point gives diminishing returns.
 
-        **Silhouette Score** — measures how well separated the clusters are (on a scale of 0 to 1).
-        A higher score means customers within a segment are similar to each other and
-        distinct from other segments. Look for a **local peak**; this is often the best `k`.
+        **Silhouette Score:** measures how well separated the clusters are (on a scale of 0 to 1).
+        A higher score means customers within a segment are more similar to each other & more
+        distinct from other segments. **Local peaks** are often the best `k`.
 
         > **Tip:** Find where the elbow and silhouette peak agree. If they differ,
-        > favour the silhouette score. Consider interpretability: 3–4 segments are usually
-        > more actionable than 6.
+        > favour the silhouette score. Consider interpretability: 3-4 segments are usually
+        > more actionable for the business than 6.
         """)
 
         k_vals, inertias, silhouettes = elbow_data(
@@ -102,7 +102,7 @@ else:
                 xaxis_title="k",
                 yaxis_title="Inertia"
             )
-            finalize_fig(fig_elbow)
+            finalise_fig(fig_elbow)
             st.plotly_chart(fig_elbow, width="stretch")
 
         with c2:
@@ -119,7 +119,7 @@ else:
                 xaxis_title="k",
                 yaxis_title="Score"
             )
-            finalize_fig(fig_sil)
+            finalise_fig(fig_sil)
             st.plotly_chart(fig_sil, width="stretch")
 
     # ── k selector ──────────────────────────────────────────────────────
@@ -182,7 +182,7 @@ else:
         },
         hide_index=True)
 
-    # ── Scatter: Frequency vs Monetary, coloured by segment ─────────────
+    # ── Scatter: Frequency vs Monetary, coloured by segment ────
     st.space("small")
     section("Segment visualisation", eyebrow="Distributions")
     col_a, col_b = st.columns(2)
@@ -201,7 +201,7 @@ else:
             opacity=0.65,
         )
         fig_scatter.update_yaxes(tickprefix="£", tickformat=",")
-        finalize_fig(fig_scatter)
+        finalise_fig(fig_scatter)
         st.plotly_chart(fig_scatter, width="stretch")
 
     with col_b:
@@ -217,10 +217,10 @@ else:
         )
         fig_box.update_layout(showlegend=False)
         fig_box.update_yaxes(tickprefix="£", tickformat=",")
-        finalize_fig(fig_box)
+        finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
 
-    # ── Radar chart: normalised RFM means per segment ───────────────────
+    # ── Radar chart: normalised RFM means per segment ─────────
     st.space("medium")
     section("Segment radar chart", eyebrow="Normalised RFM")
     radar_df = (
@@ -259,10 +259,10 @@ else:
         ),
         title="Normalised RFM profile per segment",
     )
-    finalize_fig(fig_radar)
+    finalise_fig(fig_radar)
     st.plotly_chart(fig_radar, width="stretch")
 
-    # ── Download ────────────────────────────────────────────────────────
+    # ── Download ─────────
     st.space("small")
     section("Export", eyebrow="Download results")
     csv = rfm[
