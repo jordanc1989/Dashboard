@@ -14,7 +14,8 @@ from utils import (
     load_data,
     apply_sidebar_filters,
     build_clv_summary,
-    render_dataset_subtitle,
+    render_page_header,
+    section,
     finalize_fig,
 )
 
@@ -32,15 +33,9 @@ st.set_page_config(
 df = load_data()
 df = apply_sidebar_filters(df)
 
-render_dataset_subtitle(df)
-st.markdown(
-    "Two probabilistic models are chained to predict future value per customer: "
-    "**BG/NBD** (Beta-Geometric / Negative Binomial Distribution) models *when* customers "
-    "will purchase again, and **Gamma-Gamma** models *how much* they'll spend. "
-    "Together they produce an individual CLV forecast over any horizon you choose!"
-)
+render_page_header("clv", df)
 
-with st.expander("How the models work"):
+with st.expander("How the models work", icon=":material/help_outline:"):
     st.markdown("""
 **BG/NBD model** assumes each customer has an unobserved purchase rate (Poisson) and dropout
 probability (Geometric). It takes three inputs per customer:
@@ -72,29 +67,31 @@ if len(summary) < 20:
     st.stop()
 
 # ── Controls ───────────────────────────────────────────────────────────────────
-col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns(4)
-with col_ctrl1:
-    horizon_months = st.slider("Prediction horizon (months)", min_value=1, max_value=12, value=3)
-with col_ctrl2:
-    annual_rate = st.slider(
-        "Annual discount rate (%)",
-        min_value=0.0, max_value=10.0, value=3.5, step=0.5,
-        help="Cost of capital used to discount future cash flows to present value. 3-5% is typical for stable retailers."
-    ) / 100
-    monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
+section("Model controls", eyebrow="Horizon & inference")
+with st.container(border=True):
+    col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns(4)
+    with col_ctrl1:
+        horizon_months = st.slider("Prediction horizon (months)", min_value=1, max_value=12, value=3)
+    with col_ctrl2:
+        annual_rate = st.slider(
+            "Annual discount rate (%)",
+            min_value=0.0, max_value=10.0, value=3.5, step=0.5,
+            help="Cost of capital used to discount future cash flows to present value. 3-5% is typical for stable retailers."
+        ) / 100
+        monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
 
-with col_ctrl3:
-    winsorise_monetary = st.toggle(
-        "Winsorise spend (99th pct)",
-        value=True,
-        help="Clips extreme values at the 99th percentile before fitting the Gamma-Gamma model. Reduces the influence of one-off large orders on everyone's predicted AOV.",
-    )
-with col_ctrl4:
-    use_mcmc = st.toggle(
-        "MCMC sampling",
-        value=False,
-        help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes ~1-2 minutes to run. Results cached after the first run.",
-    )
+    with col_ctrl3:
+        winsorise_monetary = st.toggle(
+            "Winsorise spend (99th pct)",
+            value=True,
+            help="Clips extreme values at the 99th percentile before fitting the Gamma-Gamma model. Reduces the influence of one-off large orders on everyone's predicted AOV.",
+        )
+    with col_ctrl4:
+        use_mcmc = st.toggle(
+            "MCMC sampling",
+            value=False,
+            help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes ~1-2 minutes to run. Results cached after the first run.",
+        )
 
 if use_mcmc and not st.session_state.get("_mcmc_toast_shown"):
     st.toast("MCMC mode enabled — first run takes ~1-2 minutes. Results are cached once fitted.")
@@ -234,27 +231,39 @@ if use_mcmc:
 summary = summary.reset_index()  # restore customer_id as a plain column
 
 # ── KPIs ───────────────────────────────────────────────────────────────────────
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Customers modelled", f"{len(summary):,}")
+st.space("small")
+section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
 total_clv = summary["clv"].sum()
 median_clv = summary["clv"].median()
 
-if use_mcmc:
-    k2.metric(
-        f"Expected revenue (next {horizon_months}m)",
-        f"£{total_clv:,.0f}",
-        help=f"90% credible interval: £{summary['clv_p05'].sum():,.0f} - £{summary['clv_p95'].sum():,.0f}",
+with st.container(horizontal=True):
+    st.metric("Customers modelled", f"{len(summary):,}", border=True)
+    if use_mcmc:
+        st.metric(
+            f"Expected revenue (next {horizon_months}m)",
+            f"£{total_clv:,.0f}",
+            border=True,
+            help=f"90% credible interval: £{summary['clv_p05'].sum():,.0f} - £{summary['clv_p95'].sum():,.0f}",
+        )
+        st.metric(
+            "Median CLV",
+            f"£{median_clv:,.2f}",
+            border=True,
+            help=f"90% credible interval: £{summary['clv_p05'].median():,.2f} - £{summary['clv_p95'].median():,.2f}",
+        )
+    else:
+        st.metric(
+            f"Expected revenue (next {horizon_months}m)",
+            f"£{total_clv:,.0f}",
+            border=True,
+        )
+        st.metric("Median CLV", f"£{median_clv:,.2f}", border=True)
+    st.metric(
+        "Median P(still active)",
+        f"{summary['prob_alive'].median()*100:.1f}%",
+        border=True,
     )
-    k3.metric(
-        "Median CLV",
-        f"£{median_clv:,.2f}",
-        help=f"90% credible interval: £{summary['clv_p05'].median():,.2f} - £{summary['clv_p95'].median():,.2f}",
-    )
-else:
-    k2.metric(f"Expected revenue (next {horizon_months}m)", f"£{total_clv:,.0f}")
-    k3.metric("Median CLV", f"£{median_clv:,.2f}")
-k4.metric("Median P(still active)", f"{summary['prob_alive'].median()*100:.1f}%")
 
 # ── Out-of-sample validation ───────────────────────────────────────────────────
 @st.cache_data
@@ -298,7 +307,13 @@ def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     return ch, holdout_weeks, cal_end
 
 
-with st.expander("Out-of-sample validation: BG/NBD model", expanded=False):
+st.space("small")
+section("Out-of-sample validation", eyebrow="75 / 25 time split")
+with st.expander(
+    "BG/NBD model: predicted vs actual purchases",
+    expanded=False,
+    icon=":material/fact_check:",
+):
     st.markdown(
         "Model performance is evaluated by withholding the last 25% of the observation window, "
         "fitting BG/NBD (MAP) only on the earlier 75%, and predicting the number of purchases each "
@@ -411,7 +426,11 @@ def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None
     return ch_gg, cal_end
 
 
-with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=False):
+with st.expander(
+    "Gamma-Gamma spend model: predicted vs actual AOV",
+    expanded=False,
+    icon=":material/fact_check:",
+):
     st.markdown(
         "The Gamma-Gamma model is validated using the same 75/25 time split. "
         "It is fitted on calibration-period transactions, and its predicted average order value "
@@ -476,7 +495,8 @@ with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=F
             )
 
 # ── Model diagnostics ──────────────────────────────────────────────────────────
-st.subheader("Model diagnostics")
+st.space("small")
+section("Model diagnostics", eyebrow="Frequency × recency surfaces")
 
 col_d1, col_d2 = st.columns(2)
 
@@ -572,7 +592,8 @@ with col_d2:
     st.plotly_chart(fig_alive, width="stretch")
 
 # ── CLV distribution ───────────────────────────────────────────────────────────
-st.subheader("CLV distribution")
+st.space("small")
+section("CLV distribution", eyebrow="Histogram & concentration")
 
 col_h1, col_h2 = st.columns(2)
 
@@ -585,7 +606,7 @@ with col_h1:
         x="clv",
         title=f"CLV distribution over {horizon_months} months",
         labels={"clv": "Predicted CLV (£)"},
-        color_discrete_sequence=["#2C78B7"],
+        color_discrete_sequence=["#B85F3D"],
     )
     fig_hist.update_traces(xbins=dict(start=0, end=x_cap * 1.02, size=bin_size))
     fig_hist.update_xaxes(tickprefix="£", tickformat=",")
@@ -630,7 +651,8 @@ with col_h2:
     st.plotly_chart(fig_lorenz, width="stretch")
 
 # ── Top customers ──────────────────────────────────────────────────────────────
-st.subheader("Top customers by predicted CLV")
+st.space("small")
+section("Top customers by predicted CLV", eyebrow="Targeting shortlist")
 
 top_n = st.slider("Show top N customers", min_value=10, max_value=100, value=25, step=5)
 
@@ -679,6 +701,8 @@ st.dataframe(
 )
 
 # ── Download ───────────────────────────────────────────────────────────────────
+st.space("small")
+section("Export", eyebrow="Download")
 export = summary.copy()
 export["weeks_since_last_purchase"] = (export["T"] - export["recency"]).clip(lower=0)
 export = export.drop(columns=["recency"])
@@ -692,4 +716,5 @@ st.download_button(
     data=csv,
     file_name="clv_predictions.csv",
     mime="text/csv",
+    icon=":material/download:",
 )

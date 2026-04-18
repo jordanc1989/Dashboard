@@ -13,7 +13,8 @@ from utils import (
     apply_sidebar_filters,
     build_revenue_series,
     load_data,
-    render_dataset_subtitle,
+    render_page_header,
+    section,
     finalize_fig,
 )
 
@@ -30,58 +31,52 @@ st.set_page_config(
 df = load_data()
 df = apply_sidebar_filters(df)
 
-render_dataset_subtitle(df)
-
-st.markdown(
-    "Forecasts future revenue from the historical transaction stream. "
-    "Two complementary classical models are available: **SARIMA** (Seasonal "
-    "ARIMA) and the **Theta method** (M3-competition-winning decomposition "
-    "forecaster). A holdout window is reserved at the end of the series to "
-    "score out-of-sample accuracy."
-)
+render_page_header("forecast", df)
 
 
 # ── Controls ──────────────────────────────────────────────────────────
-c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+section("Forecast controls", eyebrow="Frequency, model, horizon")
+with st.container(border=True):
+    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
 
-with c1:
-    freq_label = st.selectbox(
-        "Frequency",
-        ["Weekly", "Monthly"],
-        index=0,
-        help=(
-            "Weekly gives ~109 observations for this dataset — the best "
-            "balance of resolution and sample size. Monthly (~25 points) "
-            "captures yearly seasonality but with less granularity."
-        ),
-    )
-freq_code = "W" if freq_label == "Weekly" else "MS"
-default_season = 52 if freq_code == "W" else 12
+    with c1:
+        freq_label = st.selectbox(
+            "Frequency",
+            ["Weekly", "Monthly"],
+            index=0,
+            help=(
+                "Weekly gives ~109 observations for this dataset — the best "
+                "balance of resolution and sample size. Monthly (~25 points) "
+                "captures yearly seasonality but with less granularity."
+            ),
+        )
+    freq_code = "W" if freq_label == "Weekly" else "MS"
+    default_season = 52 if freq_code == "W" else 12
 
-with c2:
-    model_name = st.selectbox(
-        "Model",
-        ["SARIMA", "Theta"],
-        index=0,
-    )
+    with c2:
+        model_name = st.selectbox(
+            "Model",
+            ["SARIMA", "Theta"],
+            index=0,
+        )
 
-with c3:
-    horizon = st.slider(
-        "Forecast horizon",
-        min_value=1,
-        max_value=52 if freq_code == "W" else 12,
-        value=13 if freq_code == "W" else 6,
-        help="Number of periods to forecast beyond the observed data.",
-    )
+    with c3:
+        horizon = st.slider(
+            "Forecast horizon",
+            min_value=1,
+            max_value=52 if freq_code == "W" else 12,
+            value=13 if freq_code == "W" else 6,
+            help="Number of periods to forecast beyond the observed data.",
+        )
 
-with c4:
-    holdout = st.slider(
-        "Holdout periods",
-        min_value=0,
-        max_value=16 if freq_code == "W" else 4,
-        value=8 if freq_code == "W" else 2,
-        help="Periods held out at the end of the series for backtest metrics.",
-    )
+    with c4:
+        holdout = st.slider(
+            "Holdout periods",
+            min_value=0,
+            max_value=16 if freq_code == "W" else 4,
+            value=8 if freq_code == "W" else 2,
+            help="Periods held out at the end of the series for backtest metrics.",
+        )
 
 
 # ── Build series ──────────────────────────────────────────────────────
@@ -111,7 +106,11 @@ test = series.iloc[len(series) - holdout :] if holdout > 0 else series.iloc[0:0]
 
 
 # ── Model-specific controls ───────────────────────────────────────────
-with st.expander("Model parameters", expanded=False):
+with st.expander(
+    "Model parameters",
+    expanded=False,
+    icon=":material/tune:",
+):
     if model_name == "SARIMA":
         cc1, cc2, cc3 = st.columns(3)
         p = cc1.number_input(
@@ -353,24 +352,38 @@ if pred_mean is not None:
 
 
 # ── KPIs ──────────────────────────────────────────────────────────────
-k1, k2, k3, k4 = st.columns(4)
-k1.metric("Observations", f"{len(series):,}")
-k2.metric("Holdout MAPE", f"{backtest_mape:.1f}%" if backtest_mape is not None else "—")
-k3.metric("Holdout RMSE", f"£{backtest_rmse:,.0f}" if backtest_rmse is not None else "—")
-k4.metric(
-    f"Next {horizon}-period forecast",
-    f"£{float(future_mean.sum()):,.0f}",
-)
+st.space("small")
+section("Forecast performance", eyebrow="Backtest & outlook")
+
+with st.container(horizontal=True):
+    st.metric("Observations", f"{len(series):,}", border=True)
+    st.metric(
+        "Holdout MAPE",
+        f"{backtest_mape:.1f}%" if backtest_mape is not None else "—",
+        border=True,
+    )
+    st.metric(
+        "Holdout RMSE",
+        f"£{backtest_rmse:,.0f}" if backtest_rmse is not None else "—",
+        border=True,
+    )
+    st.metric(
+        f"Next {horizon}-period forecast",
+        f"£{float(future_mean.sum()):,.0f}",
+        border=True,
+    )
 
 
 # ── Main chart ────────────────────────────────────────────────────────
+st.space("small")
+section("Forecast chart", eyebrow=f"{freq_label.lower()} revenue · {model_name}")
 fig = go.Figure()
 
 fig.add_trace(go.Scatter(
     x=train.index, y=train.values,
     name="Training",
     mode="lines",
-    line=dict(color="#2C78B7", width=2, shape="spline"),
+    line=dict(color="#3F6277", width=2, shape="spline"),
 ))
 
 if holdout > 0:
@@ -421,7 +434,13 @@ st.plotly_chart(fig, width="stretch")
 
 
 # ── Residual diagnostics ──────────────────────────────────────────────
-with st.expander("Residual diagnostics"):
+st.space("small")
+section("Diagnostics & forecast table", eyebrow="Residuals & values")
+with st.expander(
+    "Residual diagnostics",
+    expanded=False,
+    icon=":material/insights:",
+):
     d1, d2 = st.columns(2)
 
     with d1:
@@ -445,7 +464,7 @@ with st.expander("Residual diagnostics"):
         fig_h = go.Figure(go.Histogram(
             x=residuals.values,
             nbinsx=20,
-            marker=dict(color="#7A52B3"),
+            marker=dict(color="#B85F3D"),
         ))
         fig_h.update_layout(
             title="Residual distribution",
@@ -460,7 +479,11 @@ with st.expander("Residual diagnostics"):
 
 
 # ── Forecast table ────────────────────────────────────────────────────
-with st.expander("Forecast values"):
+with st.expander(
+    "Forecast values",
+    expanded=False,
+    icon=":material/table_chart:",
+):
     fc_table = pd.DataFrame({
         "Period": future_mean.index.strftime("%Y-%m-%d"),
         "Forecast (£)": future_mean.values.astype(float),

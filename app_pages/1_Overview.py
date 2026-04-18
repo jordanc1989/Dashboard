@@ -7,7 +7,8 @@ from utils import (
     load_data,
     load_raw_count,
     apply_sidebar_filters,
-    render_dataset_subtitle,
+    render_page_header,
+    section,
     finalize_fig,
 )
 
@@ -20,10 +21,10 @@ st.set_page_config(
 df = load_data()
 df = apply_sidebar_filters(df)
 
-render_dataset_subtitle(df)
+render_page_header("overview", df)
 
 # ── Data quality summary ──────────────────────────────────────────────
-with st.expander("Data quality summary"):
+with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
     st.markdown(f"""
     | Check | Result |
@@ -42,6 +43,7 @@ with st.expander("Data quality summary"):
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
 # ── KPI row ───────────────────────────────────────────────────────────
+section("Headline KPIs", eyebrow="Last 12 months sparkline")
 monthly = df.groupby("Month").agg(
     revenue=("Revenue", "sum"),
     customers=("Customer ID", "nunique"),
@@ -84,15 +86,18 @@ with st.container(horizontal=True):
         chart_type="line",
     )
 
+st.space("small")
+
 # ── Monthly revenue — area chart with spline smoothing ────────────────
+section("Revenue trend", eyebrow="Monthly")
 monthly_revenue = df.groupby("Month")["Revenue"].sum().reset_index()
 fig_line = go.Figure(go.Scatter(
     x=monthly_revenue["Month"],
     y=monthly_revenue["Revenue"],
     mode="lines",
-    line=dict(color="#2C78B7", width=2.5, shape="spline"),
+    line=dict(color="#B85F3D", width=2.5, shape="spline"),
     fill="tozeroy",
-    fillcolor="rgba(44,120,183,0.12)",
+    fillcolor="rgba(184,95,61,0.12)",
 ))
 fig_line.update_layout(
     title="Monthly revenue trend",
@@ -104,6 +109,8 @@ fig_line.update_layout(
 finalize_fig(fig_line, unified_hover=True)
 st.plotly_chart(fig_line, width='stretch')
 
+st.space("small")
+section("Top performers", eyebrow="By revenue")
 col_left, col_right = st.columns(2)
 with col_left:
     top_countries = (
@@ -135,7 +142,8 @@ with col_right:
     finalize_fig(fig_prod)
     st.plotly_chart(fig_prod, width='stretch')
 
-with st.expander("View raw data sample"):
+st.space("small")
+with st.expander("View raw data sample", icon=":material/table_view:"):
     st.dataframe(
         df.head(500),
         width="stretch",

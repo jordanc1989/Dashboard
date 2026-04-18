@@ -13,7 +13,8 @@ from utils import (
     assign_segment_labels,
     SEGMENT_COLORS,
     SEGMENT_LABELS,
-    render_dataset_subtitle,
+    render_page_header,
+    section,
     NEUTRAL_RADAR_GRID,
     finalize_fig,
 )
@@ -27,12 +28,7 @@ st.set_page_config(
 df = load_data()
 df = apply_sidebar_filters(df)
 
-render_dataset_subtitle(df)
-st.markdown(
-    "Customers are scored on **Recency** (days since last purchase), "
-    "**Frequency** (number of orders), and **Monetary** (total spend). "
-    "K-Means clustering groups them into actionable segments for targeted marketing."
-)
+render_page_header("rfm", df)
 
 df_customers = df[~df["is_guest"]]
 rfm_raw = build_rfm(df_customers)
@@ -45,13 +41,29 @@ if max_k < 2:
     )
 else:
     default_k = min(4, max_k)
-    winsorise = st.toggle(
-        "Winsorise outliers (clip at 1st/99th percentile)",
-        value=True
-    )
+
+    section("Clustering controls", eyebrow="Model inputs")
+    with st.container(border=True):
+        ctrl_cols = st.columns([2, 3])
+        with ctrl_cols[0]:
+            winsorise = st.toggle(
+                "Winsorise outliers",
+                value=True,
+                help="Clip Recency / Frequency / Monetary at the 1st and 99th "
+                "percentiles before fitting K-means. Helps with long-tailed spend.",
+            )
+        with ctrl_cols[1]:
+            st.caption(
+                "Winsorising reduces the influence of extreme outliers so clusters "
+                "reflect the broader customer base rather than a handful of whales."
+            )
 
     # ── Elbow / silhouette chart ────────────────────────────────────────
-    with st.expander("Choose number of clusters (Elbow method)", expanded=True):
+    with st.expander(
+        "Choose number of clusters (Elbow method)",
+        expanded=True,
+        icon=":material/insights:",
+    ):
         st.markdown("""
         Use these two charts together to choose the right number of customer segments (`k`):
 
@@ -111,12 +123,14 @@ else:
             st.plotly_chart(fig_sil, width="stretch")
 
     # ── k selector ──────────────────────────────────────────────────────
-    n_clusters = st.select_slider(
-        "Number of segments",
-        options=list(range(2, max_k + 1)),
-        value=default_k,
-        label_visibility='visible'
-    )
+    st.space("small")
+    with st.container(border=True):
+        n_clusters = st.select_slider(
+            "Number of segments (k)",
+            options=list(range(2, max_k + 1)),
+            value=default_k,
+            label_visibility='visible'
+        )
 
     rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
     rfm["Segment"] = assign_segment_labels(rfm)
@@ -133,7 +147,8 @@ else:
     )
 
     # ── Segment summary table ───────────────────────────────────────────
-    st.subheader("Segment profiles")
+    st.space("small")
+    section("Segment profiles", eyebrow="Customer mix")
     segment_summary = (
         rfm.groupby("Segment", observed=False)
         .agg(
@@ -168,7 +183,8 @@ else:
         hide_index=True)
 
     # ── Scatter: Frequency vs Monetary, coloured by segment ─────────────
-    st.subheader("Segment visualization")
+    st.space("small")
+    section("Segment visualisation", eyebrow="Distributions")
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -206,7 +222,7 @@ else:
 
     # ── Radar chart: normalised RFM means per segment ───────────────────
     st.space("medium")
-    st.subheader("Segment radar chart")
+    section("Segment radar chart", eyebrow="Normalised RFM")
     radar_df = (
         rfm.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
         .mean()
@@ -247,7 +263,8 @@ else:
     st.plotly_chart(fig_radar, width="stretch")
 
     # ── Download ────────────────────────────────────────────────────────
-    st.subheader("Export")
+    st.space("small")
+    section("Export", eyebrow="Download results")
     csv = rfm[
         ["Customer ID", "Recency", "Frequency", "Monetary", "Segment"]
     ].to_csv(index=False)
@@ -256,5 +273,6 @@ else:
         label="Download segmented customers (CSV)",
         data=csv,
         file_name="rfm_segments.csv",
-        mime="text/csv"
+        mime="text/csv",
+        icon=":material/download:",
     )

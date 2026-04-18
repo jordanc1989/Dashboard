@@ -27,7 +27,8 @@ from utils import (
     apply_sidebar_filters,
     build_churn_dataset,
     load_data,
-    render_dataset_subtitle,
+    render_page_header,
+    section,
     finalize_fig,
 )
 
@@ -40,16 +41,9 @@ st.set_page_config(
 df = load_data()
 df = apply_sidebar_filters(df)
 
-render_dataset_subtitle(df)
-st.markdown(
-    "Non-contractual retail has no explicit churn label, so we fabricate one "
-    "from a **time split**. Customers active on or before a cutoff date are "
-    "labelled *churned* if they make no further purchase in the subsequent "
-    "window. A **Random Forest** classifier is then trained on engineered "
-    "RFM-style features to predict this outcome."
-)
+render_page_header("churn", df)
 
-with st.expander("How churn is defined here", expanded=False):
+with st.expander("How churn is defined here", expanded=False, icon=":material/help_outline:"):
     st.markdown(
         """
 The Online Retail dataset has no subscription or cancellation signal. The
@@ -72,45 +66,51 @@ cross-validation for the at-risk table below.
 span_days = (df["InvoiceDate"].max() - df["InvoiceDate"].min()).days
 max_window = max(30, min(365, span_days // 3))
 
-c1, c2, c3 = st.columns(3)
-with c1:
-    window_days = st.slider(
-        "Churn window (days)",
-        min_value=30,
-        max_value=max_window,
-        value=min(90, max_window),
-        step=15,
-        help=(
-            "No purchase within this window after the cutoff = churned. "
-            "Shorter windows → more customers labelled churned and a noisier "
-            "signal; longer windows → fewer churners but more stable."
-        ),
-    )
-with c2:
-    threshold = st.slider(
-        "Decision threshold",
-        min_value=0.10,
-        max_value=0.90,
-        value=0.50,
-        step=0.05,
-        help=(
-            "Probability above which a customer is classified as churned. "
-            "Lower thresholds catch more churners (higher recall) at the "
-            "cost of more false positives."
-        ),
-    )
-with c3:
-    balance_classes = st.toggle(
-        "Balance classes",
-        value=True,
-        help=(
-            "When churners are the minority class, this prevents the model from "
-            "ignoring them. Boosts recall at the cost of some precision: usually "
-            "the right trade-off for retention. Watch the confusion matrix change."
-        ),
-    )
+section("Model controls", eyebrow="Churn definition & threshold")
+with st.container(border=True):
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        window_days = st.slider(
+            "Churn window (days)",
+            min_value=30,
+            max_value=max_window,
+            value=min(90, max_window),
+            step=15,
+            help=(
+                "No purchase within this window after the cutoff = churned. "
+                "Shorter windows → more customers labelled churned and a noisier "
+                "signal; longer windows → fewer churners but more stable."
+            ),
+        )
+    with c2:
+        threshold = st.slider(
+            "Decision threshold",
+            min_value=0.10,
+            max_value=0.90,
+            value=0.50,
+            step=0.05,
+            help=(
+                "Probability above which a customer is classified as churned. "
+                "Lower thresholds catch more churners (higher recall) at the "
+                "cost of more false positives."
+            ),
+        )
+    with c3:
+        balance_classes = st.toggle(
+            "Balance classes",
+            value=True,
+            help=(
+                "When churners are the minority class, this prevents the model from "
+                "ignoring them. Boosts recall at the cost of some precision: usually "
+                "the right trade-off for retention. Watch the confusion matrix change."
+            ),
+        )
 
-with st.expander("Advanced model settings", expanded=False):
+with st.expander(
+    "Advanced model settings",
+    expanded=False,
+    icon=":material/tune:",
+):
     adv1, adv2, adv3 = st.columns(3)
     with adv1:
         n_estimators = st.slider(
@@ -251,25 +251,45 @@ features = features.assign(churn_prob=oof_probs)
 
 
 # ── KPIs ─────────────────────────────────────────────────────────────────────
+st.space("small")
+section("Model performance", eyebrow="Churn rate & classifier metrics")
+
 actual_churn_rate = meta["churn_rate"]
 predicted_churn_rate = (features["churn_prob"] >= threshold).mean()
 
-k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric(
-    "Actual churn rate",
-    f"{actual_churn_rate * 100:.1f}%",
-    help=f"Share of {meta['n_customers']:,} customers who did not return in the {meta['window_days']}-day window.",
-)
-k2.metric(
-    "Predicted churn rate",
-    f"{predicted_churn_rate * 100:.1f}%",
-    delta=f"{(predicted_churn_rate - actual_churn_rate) * 100:+.1f} pp",
-    delta_color="off",
-    help="Share of customers whose out-of-fold probability exceeds the decision threshold.",
-)
-k3.metric("AUC-ROC", f"{test_metrics['auc']:.3f}", help="Hold-out area under the ROC curve. 0.5 = random, 1.0 = perfect.")
-k4.metric("Precision", f"{prec:.2f}", help="Of customers we flag as churners, how many actually churn.")
-k5.metric("Recall", f"{rec:.2f}", help="Of customers who actually churn, how many we catch.")
+with st.container(horizontal=True):
+    st.metric(
+        "Actual churn rate",
+        f"{actual_churn_rate * 100:.1f}%",
+        border=True,
+        help=f"Share of {meta['n_customers']:,} customers who did not return in the {meta['window_days']}-day window.",
+    )
+    st.metric(
+        "Predicted churn rate",
+        f"{predicted_churn_rate * 100:.1f}%",
+        delta=f"{(predicted_churn_rate - actual_churn_rate) * 100:+.1f} pp",
+        delta_color="off",
+        border=True,
+        help="Share of customers whose out-of-fold probability exceeds the decision threshold.",
+    )
+    st.metric(
+        "AUC-ROC",
+        f"{test_metrics['auc']:.3f}",
+        border=True,
+        help="Hold-out area under the ROC curve. 0.5 = random, 1.0 = perfect.",
+    )
+    st.metric(
+        "Precision",
+        f"{prec:.2f}",
+        border=True,
+        help="Of customers we flag as churners, how many actually churn.",
+    )
+    st.metric(
+        "Recall",
+        f"{rec:.2f}",
+        border=True,
+        help="Of customers who actually churn, how many we catch.",
+    )
 
 overfit_gap = test_metrics["train_auc"] - test_metrics["auc"]
 fold_std = float(test_metrics["fold_aucs"].std())
@@ -302,7 +322,8 @@ st.caption(
 )
 
 # ── Feature importance + ROC ─────────────────────────────────────────────────
-st.subheader("Model explainability")
+st.space("small")
+section("Model explainability", eyebrow="Features & curves")
 left, right = st.columns(2)
 
 with left:
@@ -416,8 +437,9 @@ with cm_col:
     st.plotly_chart(fig_cm, width="stretch")
 
 # ── At-risk customer table ───────────────────────────────────────────────────
-st.subheader("At-risk customers")
-st.markdown(
+st.space("small")
+section("At-risk customers", eyebrow="Retention targeting")
+st.caption(
     "Out-of-fold predictions for every customer, sortable by churn probability. "
     "Useful for scoping a retention campaign: the top rows are the highest-value "
     "targets to contact first."
@@ -490,6 +512,7 @@ st.download_button(
     data=csv,
     file_name="churn_predictions.csv",
     mime="text/csv",
+    icon=":material/download:",
 )
 
 st.caption(

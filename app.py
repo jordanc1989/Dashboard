@@ -1,7 +1,14 @@
 import pytensor
+import pandas as pd
 import streamlit as st
 
-from utils import apply_sidebar_filters, load_data, render_dataset_subtitle
+from utils import (
+    PAGE_META,
+    apply_sidebar_filters,
+    inject_page_chrome,
+    load_data,
+    section,
+)
 
 pytensor.config.cxx = ""  # Disables C compilation entirely - to fix current MacOS bug until Pytensor is updated
 
@@ -14,72 +21,85 @@ st.set_page_config(
 st.logo("static/jordan_cheney_logo_new.png", size="large")
 
 PAGE_CARDS = [
-    (
-        ":material/analytics:",
-        "app_pages/1_Overview.py",
-        "Overview",
-        "Revenue trends, top countries and products, and headline KPIs.",
-        "Exploration",
-        "blue",
-    ),
-    (
-        ":material/hub:",
-        "app_pages/2_RFM_Segmentation.py",
-        "RFM segmentation",
-        "K-means customer groups from recency, frequency, and monetary value.",
-        "Segmentation",
-        "violet",
-    ),
-    (
-        ":material/trending_down:",
-        "app_pages/3_Churn_Prediction.py",
-        "Churn prediction",
-        "Random forest churn risk from behavioral features.",
-        "Classification",
-        "orange",
-    ),
-    (
-        ":material/payments:",
-        "app_pages/4_CLV_Prediction.py",
-        "CLV prediction",
-        "Customer lifetime value estimates and retention-style curves.",
-        "CLV",
-        "green",
-    ),
-    (
-        ":material/show_chart:",
-        "app_pages/5_Revenue_Forecasting.py",
-        "Revenue forecasting",
-        "SARIMA and Theta forecasts of future revenue.",
-        "Forecasting",
-        "gray",
-    ),
+    ("overview", "app_pages/1_Overview.py"),
+    ("rfm", "app_pages/2_RFM_Segmentation.py"),
+    ("churn", "app_pages/3_Churn_Prediction.py"),
+    ("clv", "app_pages/4_CLV_Prediction.py"),
+    ("forecast", "app_pages/5_Revenue_Forecasting.py"),
 ]
+
+
+def _render_hero(df: pd.DataFrame) -> None:
+    """Editorial hero for the home page: eyebrow, title, tagline, dataset meta."""
+    inject_page_chrome()
+    st.html('<div class="page-header-block page-hero-block">')
+
+    st.title("Customer analytics dashboard", anchor=False)
+    st.html(
+        '<p class="page-hero-tagline">'
+        'Interactive modules for exploring a two-year UK online retail '
+        'dataset, from headline revenue KPIs to probabilistic CLV and time-series revenue forecasts.'
+        '</p>'
+    )
+    st.html('<div class="page-header-rule"></div></div>')
+
+
+def _render_glance(df: pd.DataFrame) -> None:
+    """Four at-a-glance KPIs so the home page isn't just navigation."""
+    total_revenue = float(df["Revenue"].sum())
+    n_customers = int(df["Customer ID"].nunique())
+    n_orders = int(df["Invoice"].nunique())
+    span_days = (df["InvoiceDate"].max() - df["InvoiceDate"].min()).days
+
+    with st.container(horizontal=True):
+        st.metric("Total revenue", f"£{total_revenue:,.0f}", border=True)
+        st.metric("Unique customers", f"{n_customers:,}", border=True)
+        st.metric("Invoices", f"{n_orders:,}", border=True)
+        st.metric("Observation window", f"{span_days:,} days", border=True)
+
+
+def _render_module_cards() -> None:
+    """Module grid — each card: icon + eyebrow + title + description + open link."""
+    for row_start in range(0, len(PAGE_CARDS), 2):
+        cols = st.columns(2, gap="medium")
+        for col, offset in zip(cols, (0, 1)):
+            idx = row_start + offset
+            if idx >= len(PAGE_CARDS):
+                continue
+            page_key, page_path = PAGE_CARDS[idx]
+            meta = PAGE_META[page_key]
+            with col:
+                with st.container(border=True):
+                    st.badge(
+                        meta["eyebrow"],
+                        color=meta["eyebrow_color"],
+                        icon=meta["icon"],
+                    )
+                    st.markdown(f"#### {meta['title']}")
+                    st.caption(meta["lede"])
+                    st.page_link(
+                        page_path,
+                        label=f"Open {meta['title'].lower()}",
+                        icon=":material/arrow_forward:",
+                    )
 
 
 def home_page():
     df = load_data()
     df = apply_sidebar_filters(df)
 
-    render_dataset_subtitle(df)
-    
-    st.caption(
-        "Use the sidebar to switch pages and filter by country or invoice date range."
-    )
+    _render_hero(df)
     st.space("medium")
 
-    for row in range(0, len(PAGE_CARDS), 2):
-        col_left, col_right = st.columns(2)
-        for col, j in ((col_left, 0), (col_right, 1)):
-            idx = row + j
-            if idx >= len(PAGE_CARDS):
-                break
-            icon, page_path, title, desc, badge, badge_color = PAGE_CARDS[idx]
-            with col:
-                with st.container(border=True):
-                    st.badge(badge, color=badge_color)
-                    st.page_link(page_path, label=title, icon=icon)
-                    st.caption(desc)
+    section("At a glance", eyebrow="Dataset snapshot")
+    _render_glance(df)
+    st.space("medium")
+
+    section("Analyses", eyebrow="Jump to a module")
+    st.caption(
+        "Each module has its own controls and works off the same sidebar filters."
+    )
+    _render_module_cards()
 
 
 navigation = st.navigation(
@@ -93,8 +113,5 @@ navigation = st.navigation(
     ],
     position="sidebar",
 )
-
-page_title = "Customer analytics dashboard" if navigation.title == "Home" else navigation.title
-st.title(page_title)
 
 navigation.run()

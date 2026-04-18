@@ -97,6 +97,195 @@ def render_dataset_subtitle(df: pd.DataFrame) -> None:
     )
 
 
+# ── Page chrome & shared layout helpers ─────────────────────────────────────
+# Palette + typography already live in .streamlit/config.toml. These helpers
+# add visual hierarchy on top of the native theme — they avoid overriding
+# theme colors so brand changes stay in one place.
+
+_PAGE_CHROME_CSS = """
+<style>
+/* Keep the big page title flush against its eyebrow badge so the header
+   block reads as one unit (eyebrow → title → lede → accent rule). */
+div[data-testid="stVerticalBlock"] div.page-header-block h1 {
+    margin-top: 0.1rem !important;
+    margin-bottom: 0.25rem !important;
+    letter-spacing: -0.01em;
+}
+div.page-header-block .page-header-lede {
+    color: #5c5642;
+    font-size: 1.02rem;
+    line-height: 1.55;
+    max-width: 72ch;
+    margin: 0.25rem 0 0.35rem 0;
+}
+div.page-header-block .page-header-rule {
+    width: 56px;
+    height: 3px;
+    background: linear-gradient(90deg, #ff8e32 0%, #b85f3d 100%);
+    border-radius: 2px;
+    margin: 0.75rem 0 0.25rem 0;
+}
+div.page-header-block .page-header-meta {
+    color: #6a6350;
+    font-size: 0.85rem;
+    margin: 0;
+}
+div.page-hero-block h1 {
+    font-size: 2.65rem !important;
+    line-height: 1.1 !important;
+    margin: 0.1rem 0 0.5rem 0 !important;
+    letter-spacing: -0.015em;
+}
+div.page-hero-block .page-hero-tagline {
+    color: #5c5642;
+    font-size: 1.08rem;
+    line-height: 1.55;
+    max-width: 62ch;
+    margin: 0.25rem 0 0 0;
+}
+div.section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55rem;
+    margin: 0.25rem 0 0.1rem 0;
+}
+div.section-header .section-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.72rem;
+    color: #8a7f66;
+    font-weight: 600;
+}
+div.section-header .section-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: #2b2718;
+    letter-spacing: -0.005em;
+}
+</style>
+"""
+
+
+def inject_page_chrome() -> None:
+    """Inject shared page chrome styles once per session.
+
+    Idempotent across reruns (same markup), so calling it at the top of
+    every page is safe.
+    """
+    st.html(_PAGE_CHROME_CSS)
+
+
+# Canonical page metadata — keeps eyebrow/icon/lede in one place so home
+# cards and page headers stay in sync.
+PAGE_META: dict[str, dict[str, str]] = {
+    "overview": {
+        "eyebrow": "Exploration",
+        "eyebrow_color": "blue",
+        "icon": ":material/analytics:",
+        "title": "Overview",
+        "lede": (
+            "Headline revenue, customer, and order KPIs across the UCI Online Retail "
+            "II dataset — paired with monthly trend and top-line breakdowns by country "
+            "and product."
+        ),
+    },
+    "rfm": {
+        "eyebrow": "Segmentation",
+        "eyebrow_color": "violet",
+        "icon": ":material/hub:",
+        "title": "RFM segmentation",
+        "lede": (
+            "Customers are scored on Recency (days since last purchase), Frequency "
+            "(orders), and Monetary (total spend). K-means groups them into "
+            "actionable segments for targeted marketing."
+        ),
+    },
+    "churn": {
+        "eyebrow": "Classification",
+        "eyebrow_color": "orange",
+        "icon": ":material/trending_down:",
+        "title": "Churn prediction",
+        "lede": (
+            "Non-contractual retail has no explicit churn signal, so we fabricate "
+            "one from a time split. A random forest then predicts which registered "
+            "customers are drifting towards dormancy."
+        ),
+    },
+    "clv": {
+        "eyebrow": "Lifetime value",
+        "eyebrow_color": "green",
+        "icon": ":material/payments:",
+        "title": "CLV prediction",
+        "lede": (
+            "Two probabilistic models are chained: BG/NBD forecasts when customers "
+            "will purchase again, and Gamma-Gamma forecasts how much they'll spend. "
+            "Together they deliver per-customer lifetime value."
+        ),
+    },
+    "forecast": {
+        "eyebrow": "Forecasting",
+        "eyebrow_color": "gray",
+        "icon": ":material/show_chart:",
+        "title": "Revenue forecasting",
+        "lede": (
+            "Classical time-series models project future revenue from the historical "
+            "transaction stream. SARIMA captures seasonality and trend; Theta offers "
+            "a robust M3-competition-winning baseline."
+        ),
+    },
+}
+
+
+def render_page_header(
+    page_key: str,
+    df: pd.DataFrame | None = None,
+    *,
+    lede: str | None = None,
+) -> None:
+    """Consistent eyebrow → title → lede → meta header used on every page.
+
+    Pass ``lede`` to override the canonical page lede from ``PAGE_META``.
+    """
+    inject_page_chrome()
+    meta = PAGE_META[page_key]
+
+    st.html('<div class="page-header-block">')
+    top_cols = st.columns([3, 2])
+    with top_cols[0]:
+        st.badge(meta["eyebrow"], color=meta["eyebrow_color"], icon=meta["icon"])
+    with top_cols[1]:
+        if df is not None and len(df):
+            st.html(
+                '<p class="page-header-meta" style="text-align:right;">'
+                f':material/database: UCI Online Retail II · '
+                f'{df["InvoiceDate"].min():%b %Y} – {df["InvoiceDate"].max():%b %Y}'
+                '</p>'
+            )
+
+    st.title(meta["title"], anchor=False)
+    effective_lede = lede if lede is not None else meta.get("lede")
+    if effective_lede:
+        st.html(f'<p class="page-header-lede">{effective_lede}</p>')
+    st.html('<div class="page-header-rule"></div></div>')
+
+
+def section(title: str, eyebrow: str | None = None) -> None:
+    """Editorial-style section header: small uppercase eyebrow + bold title.
+
+    Replaces ``st.subheader`` where a stronger two-line rhythm is useful.
+    """
+    inject_page_chrome()
+    eyebrow_html = (
+        f'<span class="section-eyebrow">{eyebrow}</span>' if eyebrow else ""
+    )
+    st.html(
+        f'<div class="section-header">'
+        f'{eyebrow_html}'
+        f'<span class="section-title">{title}</span>'
+        f'</div>'
+    )
+
+
 # Shared retail CSV hygiene: non-product / fee lines and dubious geography labels.
 INVALID_RETAIL_COUNTRIES = [
     "European Community",
@@ -457,23 +646,27 @@ def build_clv_summary(df):
 
 
 def apply_sidebar_filters(df):
-    st.sidebar.markdown("### Filters")
-    st.sidebar.divider()
-    with st.sidebar.expander("Data scope", expanded=True):
-        countries = ["All"] + sorted(df["Country"].unique().tolist())
-        selected_country = st.selectbox("Country", countries)
-        if selected_country != "All":
-            df = df[df["Country"] == selected_country]
-
-        min_date = df["InvoiceDate"].min().date()
-        max_date = df["InvoiceDate"].max().date()
-        date_range = st.date_input(
-            "Date range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date,
-            help="Filter transactions by invoice date. RFM and cohort analyses will update accordingly.",
+    with st.sidebar:
+        st.html(
+            '<p style="text-transform:uppercase; letter-spacing:0.12em; '
+            'font-size:0.72rem; color:#8a7f66; font-weight:600; '
+            'margin:0.25rem 0 0.35rem 0;">Filters</p>'
         )
+        with st.expander("Data scope", expanded=True, icon=":material/tune:"):
+            countries = ["All"] + sorted(df["Country"].unique().tolist())
+            selected_country = st.selectbox("Country", countries)
+            if selected_country != "All":
+                df = df[df["Country"] == selected_country]
+
+            min_date = df["InvoiceDate"].min().date()
+            max_date = df["InvoiceDate"].max().date()
+            date_range = st.date_input(
+                "Date range",
+                value=(min_date, max_date),
+                min_value=min_date,
+                max_value=max_date,
+                help="Filter transactions by invoice date. RFM and cohort analyses will update accordingly.",
+            )
     if len(date_range) == 2:
         df = df[
             (df["InvoiceDate"].dt.date >= date_range[0]) &
