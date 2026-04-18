@@ -19,7 +19,7 @@ from utils import (
 )
 
 st.set_page_config(
-    page_title="RFM Segmentation · Customer Analytics",
+    page_title="RFM segmentation · Customer analytics",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )
@@ -86,7 +86,7 @@ else:
                 marker=dict(size=7),
             ))
             fig_elbow.update_layout(
-                title="Elbow Curve (Inertia)",
+                title="Elbow curve (inertia)",
                 xaxis_title="k",
                 yaxis_title="Inertia"
             )
@@ -103,7 +103,7 @@ else:
                 marker=dict(size=7),
             ))
             fig_sil.update_layout(
-                title="Silhouette Score by k",
+                title="Silhouette score by k",
                 xaxis_title="k",
                 yaxis_title="Score"
             )
@@ -133,7 +133,7 @@ else:
     )
 
     # ── Segment summary table ───────────────────────────────────────────
-    st.subheader("Segment Profiles")
+    st.subheader("Segment profiles")
     segment_summary = (
         rfm.groupby("Segment", observed=False)
         .agg(
@@ -168,7 +168,7 @@ else:
         hide_index=True)
 
     # ── Scatter: Frequency vs Monetary, coloured by segment ─────────────
-    st.subheader("Segment Visualisation")
+    st.subheader("Segment visualization")
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -180,7 +180,7 @@ else:
             color_discrete_map=SEGMENT_COLORS,
             category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
             hover_data=["Customer ID", "Recency"],
-            title="Frequency vs Monetary by Segment",
+            title="Frequency vs monetary by segment",
             labels={"Monetary": "Total Spend (£)"},
             opacity=0.65,
         )
@@ -196,7 +196,7 @@ else:
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
             category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
-            title="Spend Distribution by Segment",
+            title="Spend distribution by segment",
             labels={"Monetary": "Total Spend (£)"},
         )
         fig_box.update_layout(showlegend=False)
@@ -205,8 +205,8 @@ else:
         st.plotly_chart(fig_box, width="stretch")
 
     # ── Radar chart: normalised RFM means per segment ───────────────────
-    st.divider()
-    st.subheader("Segment Radar Chart")
+    st.space("medium")
+    st.subheader("Segment radar chart")
     radar_df = (
         rfm.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
         .mean()
@@ -241,7 +241,7 @@ else:
             angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
             bgcolor="rgba(253,253,248,0.55)",
         ),
-        title="Normalised RFM Profile per Segment",
+        title="Normalised RFM profile per segment",
     )
     finalize_fig(fig_radar)
     st.plotly_chart(fig_radar, width="stretch")

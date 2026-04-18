@@ -12,7 +12,7 @@ from utils import (
 )
 
 st.set_page_config(
-    page_title="Overview · Customer Analytics",
+    page_title="Overview · Customer analytics",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )
@@ -54,35 +54,35 @@ trend_customers = monthly["customers"].tail(12).tolist()
 trend_orders = monthly["orders"].tail(12).tolist()
 trend_aov = monthly["aov"].tail(12).fillna(0).tolist()
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric(
-    "Total Revenue",
-    f"£{df['Revenue'].sum():,.0f}",
-    border=True,
-    chart_data=trend_revenue,
-    chart_type="line",
-)
-col2.metric(
-    "Unique Customers",
-    f"{df['Customer ID'].nunique():,}",
-    border=True,
-    chart_data=trend_customers,
-    chart_type="line",
-)
-col3.metric(
-    "Total Orders",
-    f"{df['Invoice'].nunique():,}",
-    border=True,
-    chart_data=trend_orders,
-    chart_type="line",
-)
-col4.metric(
-    "Avg Order Value",
-    f"£{df.groupby('Invoice')['Revenue'].sum().mean():,.2f}",
-    border=True,
-    chart_data=trend_aov,
-    chart_type="line",
-)
+with st.container(horizontal=True):
+    st.metric(
+        "Total revenue",
+        f"£{df['Revenue'].sum():,.0f}",
+        border=True,
+        chart_data=trend_revenue,
+        chart_type="line",
+    )
+    st.metric(
+        "Unique customers",
+        f"{df['Customer ID'].nunique():,}",
+        border=True,
+        chart_data=trend_customers,
+        chart_type="line",
+    )
+    st.metric(
+        "Total orders",
+        f"{df['Invoice'].nunique():,}",
+        border=True,
+        chart_data=trend_orders,
+        chart_type="line",
+    )
+    st.metric(
+        "Avg order value",
+        f"£{df.groupby('Invoice')['Revenue'].sum().mean():,.2f}",
+        border=True,
+        chart_data=trend_aov,
+        chart_type="line",
+    )
 
 # ── Monthly revenue — area chart with spline smoothing ────────────────
 monthly_revenue = df.groupby("Month")["Revenue"].sum().reset_index()
@@ -95,7 +95,7 @@ fig_line = go.Figure(go.Scatter(
     fillcolor="rgba(44,120,183,0.12)",
 ))
 fig_line.update_layout(
-    title="Monthly Revenue Trend",
+    title="Monthly revenue trend",
     yaxis_title="Revenue (£)",
     yaxis_tickprefix="£",
     yaxis_tickformat=",",
@@ -112,7 +112,7 @@ with col_left:
     )
     fig_bar = px.bar(
         top_countries, x="Revenue", y="Country",
-        orientation="h", title="Top 10 Countries by Revenue",
+        orientation="h", title="Top 10 countries by revenue",
         color_discrete_sequence=[ACCENT_ORANGE],
     )
     fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"))
@@ -127,7 +127,7 @@ with col_right:
     )
     fig_prod = px.bar(
         top_products, x="Revenue", y="Description",
-        orientation="h", title="Top 10 Products by Revenue",
+        orientation="h", title="Top 10 products by revenue",
         color_discrete_sequence=[ACCENT_ORANGE],
     )
     fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"))

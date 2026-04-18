@@ -19,6 +19,9 @@ CHART_COLORWAY = [
 ACCENT_ORANGE = "#fbae6f"
 PRIMARY_ACCENT = "#ff8e32"
 
+# Match `.streamlit/config.toml` [theme] font for Plotly chart chrome (code uses theme codeFont)
+UI_FONT_FAMILY = "Outfit"
+
 # Brand-aligned sequential scales for heatmaps (avoid default Blues / RdYlGn only)
 COLOR_SCALE_EXPECTED_PURCHASES = [
     "#f5f4ef",
@@ -37,9 +40,9 @@ pio.templates["portfolio"] = go.layout.Template(
     layout=go.Layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(232,230,220,0.35)",
-        font=dict(family="SpaceGrotesk", size=12, color="#3d3a2a"),
+        font=dict(family=UI_FONT_FAMILY, size=12, color="#3d3a2a"),
         title=dict(
-            font=dict(size=15, color="#141413", family="SpaceGrotesk"),
+            font=dict(size=15, color="#141413", family=UI_FONT_FAMILY),
             x=0,
             xanchor="left",
             pad=dict(b=12),

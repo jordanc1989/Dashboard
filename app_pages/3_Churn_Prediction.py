@@ -32,7 +32,7 @@ from utils import (
 )
 
 st.set_page_config(
-    page_title="Churn Prediction · Customer Analytics",
+    page_title="Churn prediction · Customer analytics",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide",
 )
@@ -288,10 +288,10 @@ if overfit_gap > 0.08:
         f"Try reducing *max tree depth* or increasing *min samples to split*."
     )
 
-st.info(
+st.markdown(
     "**Recall matters more than precision for retention.** Contacting a "
     "loyal customer with an unnecessary offer is cheap, but failing to flag an "
-    "at-risk one could mean lost revenue! Lower the **decision threshold** above to "
+    "at-risk one could mean lost revenue. Lower the **decision threshold** above to "
     "trade precision for recall."
 )
 
@@ -302,7 +302,7 @@ st.caption(
 )
 
 # ── Feature importance + ROC ─────────────────────────────────────────────────
-st.subheader("Model Explainability")
+st.subheader("Model explainability")
 left, right = st.columns(2)
 
 with left:
@@ -314,7 +314,7 @@ with left:
         x="Importance",
         y="Feature",
         orientation="h",
-        title="Feature Importance (Gini)",
+        title="Feature importance (Gini)",
         color_discrete_sequence=[CHART_COLORWAY[0]],
     )
     fig_imp.update_layout(
@@ -416,7 +416,7 @@ with cm_col:
     st.plotly_chart(fig_cm, width="stretch")
 
 # ── At-risk customer table ───────────────────────────────────────────────────
-st.subheader("At-Risk Customers")
+st.subheader("At-risk customers")
 st.markdown(
     "Out-of-fold predictions for every customer, sortable by churn probability. "
     "Useful for scoping a retention campaign: the top rows are the highest-value "

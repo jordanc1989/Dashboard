@@ -2,8 +2,8 @@
 enableStaticServing = true
 
 [[theme.fontFaces]]
-family = "SpaceGrotesk"
-url = "static/SpaceGrotesk-VariableFont_wght.ttf"
+family = "Outfit"
+url = "static/Outfit-VariableFont_wght.ttf"
 
 [[theme.fontFaces]]
 family = "SpaceMono"
@@ -39,7 +39,7 @@ borderColor = "#d3d2ca"
 showWidgetBorder = true
 baseRadius = "0.75rem"
 buttonRadius = "full"
-font = "SpaceGrotesk"
+font = "Outfit"
 headingFontWeights = [600,500,500,500,500,500]
 headingFontSizes = ["3rem", "2rem"]
 codeFont = "SpaceMono"
@@ -56,7 +56,7 @@ chartCategoricalColors = [
 ]
 
 [theme.sidebar]
-backgroundColor = "#edcea0"
+backgroundColor = "#e5d5b6"
 secondaryBackgroundColor = "#ecebe3"
 headingFontSizes = ["1.6rem", "1.4rem", "1.2rem"]
 dataframeHeaderBackgroundColor = "#e4e4e0"

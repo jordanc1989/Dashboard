@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 
 st.set_page_config(
-    page_title="Revenue Forecasting · Customer Analytics",
+    page_title="Revenue forecasting · Customer analytics",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide",
 )

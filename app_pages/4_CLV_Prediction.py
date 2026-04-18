@@ -24,7 +24,7 @@ def _df_hash(df: pd.DataFrame) -> str:
     return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
 
 st.set_page_config(
-    page_title="CLV Prediction: Customer Analytics",
+    page_title="CLV prediction · Customer analytics",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )
@@ -309,7 +309,7 @@ with st.expander("Out-of-sample validation: BG/NBD model", expanded=False):
 
     validation = run_holdout_validation(_df_hash(df_customers), df_customers)
     if validation is None:
-        st.info("Not enough data to run holdout validation for this selection.")
+        st.caption("Not enough data to run holdout validation for this selection.")
     else:
         ch, holdout_weeks, cal_end = validation
 
@@ -423,7 +423,7 @@ with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=F
 
     gg_validation = run_gg_holdout_validation(_df_hash(df_customers), df_customers)
     if gg_validation is None:
-        st.info("Not enough data to run Gamma-Gamma holdout validation for this selection.")
+        st.caption("Not enough data to run Gamma-Gamma holdout validation for this selection.")
     else:
         ch_gg, gg_cal_end = gg_validation
 
@@ -476,7 +476,7 @@ with st.expander("Out-of-sample validation: Gamma-Gamma spend model", expanded=F
             )
 
 # ── Model diagnostics ──────────────────────────────────────────────────────────
-st.subheader("Model Diagnostics")
+st.subheader("Model diagnostics")
 
 col_d1, col_d2 = st.columns(2)
 
@@ -572,7 +572,7 @@ with col_d2:
     st.plotly_chart(fig_alive, width="stretch")
 
 # ── CLV distribution ───────────────────────────────────────────────────────────
-st.subheader("CLV Distribution")
+st.subheader("CLV distribution")
 
 col_h1, col_h2 = st.columns(2)
 
@@ -621,7 +621,7 @@ with col_h2:
         bgcolor="rgba(250,249,245,0.9)", bordercolor="#CEC9BC", borderwidth=1,
     )
     fig_lorenz.update_layout(
-        title="CLV Concentration (Lorenz Curve)",
+            title="CLV concentration (Lorenz curve)",
         xaxis_title="Cumulative % of customers (low → high CLV)",
         yaxis_title="Cumulative % of total CLV",
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
@@ -630,7 +630,7 @@ with col_h2:
     st.plotly_chart(fig_lorenz, width="stretch")
 
 # ── Top customers ──────────────────────────────────────────────────────────────
-st.subheader("Top Customers by Predicted CLV")
+st.subheader("Top customers by predicted CLV")
 
 top_n = st.slider("Show top N customers", min_value=10, max_value=100, value=25, step=5)
 
