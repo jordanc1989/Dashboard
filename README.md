@@ -49,10 +49,10 @@ streamlit run app.py
 ```text
 .
 ├── app.py
-├── pages/
+├── app_pages/
 │   ├── 1_Overview.py
 │   ├── 2_RFM_Segmentation.py
-│   ├── 3_Cohort_Retention.py
+│   ├── 3_Churn_Prediction.py
 │   ├── 4_CLV_Prediction.py
 │   └── 5_Revenue_Forecasting.py
 ├── utils.py

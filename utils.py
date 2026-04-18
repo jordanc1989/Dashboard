@@ -7,20 +7,45 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score
 from scipy.stats import boxcox
 
+# Aligned with [theme] chartCategoricalColors / Plotly portfolio colorway
+CHART_COLORWAY = [
+    "#B85F3D",
+    "#2E7D68",
+    "#7A52B3",
+    "#2C78B7",
+    "#B6861E",
+    "#433D37",
+]
+ACCENT_ORANGE = "#fbae6f"
+PRIMARY_ACCENT = "#ff8e32"
+
+# Brand-aligned sequential scales for heatmaps (avoid default Blues / RdYlGn only)
+COLOR_SCALE_EXPECTED_PURCHASES = [
+    "#f5f4ef",
+    "#c5dde8",
+    "#6ba8cf",
+    "#2C78B7",
+]
+COLOR_SCALE_P_ALIVE = [
+    "#8B5E52",
+    "#ddd9ce",
+    "#6a9e82",
+    "#2E7D68",
+]
+
 pio.templates["portfolio"] = go.layout.Template(
     layout=go.Layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(232,230,220,0.35)",
-        title=dict(font=dict(size=14, color="#141413"), x=0, xanchor="left", pad=dict(b=12)),
+        font=dict(family="SpaceGrotesk", size=12, color="#3d3a2a"),
+        title=dict(
+            font=dict(size=15, color="#141413", family="SpaceGrotesk"),
+            x=0,
+            xanchor="left",
+            pad=dict(b=12),
+        ),
         margin=dict(t=52, l=12, r=12, b=12),
-        colorway=[
-            "#B85F3D",
-            "#2E7D68",
-            "#7A52B3",
-            "#2C78B7",
-            "#B6861E",
-            "#433D37"
-        ],
+        colorway=list(CHART_COLORWAY),
         legend=dict(bgcolor="rgba(250,249,245,0.9)", bordercolor="#CEC9BC", borderwidth=1),
     )
 )
@@ -43,6 +68,15 @@ SEGMENT_LABELS = [
     "Need Attention",
     "At Risk"
 ]
+
+
+def render_dataset_subtitle(df: pd.DataFrame) -> None:
+    """Standard date-range line under page titles (matches Streamlit body tone)."""
+    st.caption(
+        f"UCI Online Retail Dataset · "
+        f"{df['InvoiceDate'].min():%b %Y} – {df['InvoiceDate'].max():%b %Y}"
+    )
+
 
 # Shared retail CSV hygiene: non-product / fee lines and dubious geography labels.
 INVALID_RETAIL_COUNTRIES = [
@@ -91,12 +125,21 @@ def assign_segment_labels(rfm):
 
 
 @st.cache_data
-def load_data():
+def _load_raw():
+    """Single source of truth for the raw CSV read.
+
+    Everything downstream (orders, cancels, raw counts) derives from this
+    cached frame to avoid re-reading the file three times.
+    """
     df = pd.read_csv("data/online_retail_II.csv")
     df["Invoice"] = df["Invoice"].astype(str)
     df["StockCode"] = df["StockCode"].astype(str)
+    return df
 
-    df = _retail_csv_line_filters(df)
+
+@st.cache_data
+def load_data():
+    df = _retail_csv_line_filters(_load_raw())
 
     cancel_mask = df["Invoice"].str.startswith("C")
     cancels = df[cancel_mask].copy()
@@ -140,8 +183,7 @@ def load_data():
 
 @st.cache_data
 def load_raw_count():
-    raw = pd.read_csv("data/online_retail_II.csv", usecols=[0])
-    return len(raw)
+    return len(_load_raw())
 
 
 @st.cache_data
@@ -151,11 +193,7 @@ def load_cancels():
     Uses `_retail_csv_line_filters` like `load_data` so cancel counts stay
     comparable. Returned columns: Customer ID, InvoiceDate, Invoice.
     """
-    df = pd.read_csv("data/online_retail_II.csv")
-    df["Invoice"] = df["Invoice"].astype(str)
-    df["StockCode"] = df["StockCode"].astype(str)
-
-    df = _retail_csv_line_filters(df)
+    df = _retail_csv_line_filters(_load_raw())
 
     df = df[df["Invoice"].str.startswith("C")]
     df = df.dropna(subset=["Customer ID"])
@@ -187,7 +225,7 @@ def transform_rfm(rfm):
     return rfm, X
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def run_clustering(rfm_raw, n_clusters, winsorise=True):
     rfm = rfm_raw.copy()
     if winsorise:
@@ -202,7 +240,7 @@ def run_clustering(rfm_raw, n_clusters, winsorise=True):
     return rfm, sil
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def elbow_data(rfm_raw, winsorise=True, max_segments=6):
     rfm = rfm_raw.copy()
 
@@ -231,7 +269,7 @@ def elbow_data(rfm_raw, winsorise=True, max_segments=6):
     return list(k_range), inertias, silhouettes
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def build_cohort(df):
     df = df.copy()
     df["OrderMonth"] = df["InvoiceDate"].dt.to_period("M")
@@ -251,7 +289,7 @@ def build_cohort(df):
     return retention, cohort_sizes.values
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def build_revenue_series(df, freq="W"):
     """Aggregate transactions into a regular-interval revenue time series.
 
@@ -275,7 +313,7 @@ def build_revenue_series(df, freq="W"):
     return series
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def build_churn_dataset(df, churn_window_days=90):
     """Build a supervised churn dataset from transaction data.
 
@@ -365,7 +403,7 @@ def build_churn_dataset(df, churn_window_days=90):
     return features, meta
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def build_clv_summary(df):
     """Build the per-customer RFM summary pymc-marketing expects.
 
@@ -400,7 +438,6 @@ def build_clv_summary(df):
 
 
 def apply_sidebar_filters(df):
-    st.logo("static/jordan_cheney_logo_new.png", size="large")
     st.sidebar.title("Filters")
     countries = ["All"] + sorted(df["Country"].unique().tolist())
     selected_country = st.sidebar.selectbox("Country", countries)
@@ -421,4 +458,6 @@ def apply_sidebar_filters(df):
             (df["InvoiceDate"].dt.date >= date_range[0]) &
             (df["InvoiceDate"].dt.date <= date_range[1])
         ]
+    else:
+        st.sidebar.caption("Pick an end date to apply range.")
     return df

@@ -1,29 +1,29 @@
 [[pages]]
 path = "app.py"
 name = "Home"
-icon = "🏠"
+icon = ":material/home:"
 
 [[pages]]
-path = "pages/1_Overview.py"
+path = "app_pages/1_Overview.py"
 name = "Overview"
-icon = "📈"
+icon = ":material/analytics:"
 
 [[pages]]
-path = "pages/2_RFM_Segmentation.py"
+path = "app_pages/2_RFM_Segmentation.py"
 name = "RFM Segmentation"
-icon = "🧩"
+icon = ":material/hub:"
 
 [[pages]]
-path = "pages/3_Churn_Prediction.py"
+path = "app_pages/3_Churn_Prediction.py"
 name = "Churn Prediction"
-icon = "🔄"
+icon = ":material/trending_down:"
 
 [[pages]]
-path = "pages/4_CLV_Prediction.py"
+path = "app_pages/4_CLV_Prediction.py"
 name = "CLV Prediction"
-icon = "💰"
+icon = ":material/payments:"
 
 [[pages]]
-path = "pages/5_Revenue_Forecasting.py"
+path = "app_pages/5_Revenue_Forecasting.py"
 name = "Revenue Forecasting"
-icon = "🔮"
+icon = ":material/show_chart:"
