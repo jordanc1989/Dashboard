@@ -37,7 +37,7 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         ("After cleaning", f"{len(df):,}"),
         ("Rows removed", f"{removed:,} ({removed_pct:.1f}%)"),
         ("Unique customers", f"{df['Customer ID'].nunique():,}"),
-        ("Date range", f"{df['InvoiceDate'].min():%d %b %Y} – {df['InvoiceDate'].max():%d %b %Y}"),
+        ("Date range", f"{df['InvoiceDate'].min():%d %b %Y} - {df['InvoiceDate'].max():%d %b %Y}"),
         ("Guest checkouts", f"{guest_rows:,} ({guest_pct:.1f}%)"),
         ("Registered customers", f"{(~df['is_guest']).sum():,}"),
     ])

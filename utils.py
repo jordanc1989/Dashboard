@@ -485,12 +485,12 @@ def section(title: str, eyebrow: str | None = None) -> None:
     """
     inject_page_chrome()
     eyebrow_html = (
-        f'<span class="section-eyebrow">{eyebrow}</span>' if eyebrow else ""
+        f'<span class="section-eyebrow" style="text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.7rem; color: #8a7f66; font-weight: 600; margin-right: 0.6rem;">{eyebrow}</span>' if eyebrow else ""
     )
     st.html(
-        f'<div class="section-header">'
+        f'<div class="section-header" style="display: flex; align-items: baseline; margin: 1.5rem 0 0.65rem 0; padding-bottom: 0.4rem; border-bottom: 1px solid #e8e2d2;">'
         f'{eyebrow_html}'
-        f'<span class="section-title">{title}</span>'
+        f'<span class="section-title" style="font-size: 1.12rem; font-weight: 600; color: #2b2718; letter-spacing: -0.005em;">{title}</span>'
         f'</div>'
     )
 
