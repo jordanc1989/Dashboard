@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import plotly.io as pio
 from sklearn.cluster import KMeans
@@ -39,24 +40,54 @@ COLOR_SCALE_P_ALIVE = [
 pio.templates["portfolio"] = go.layout.Template(
     layout=go.Layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(232,230,220,0.35)",
+        plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family=UI_FONT_FAMILY, size=12, color="#3d3a2a"),
         title=dict(
-            font=dict(size=15, color="#141413", family=UI_FONT_FAMILY),
+            font=dict(size=14, color="#141413", family=UI_FONT_FAMILY),
             x=0,
             xanchor="left",
-            pad=dict(b=12),
+            pad=dict(b=14),
         ),
-        margin=dict(t=52, l=12, r=12, b=12),
+        margin=dict(t=48, l=8, r=8, b=8),
         colorway=list(CHART_COLORWAY),
-        legend=dict(bgcolor="rgba(250,249,245,0.9)", bordercolor="#CEC9BC", borderwidth=1),
+        legend=dict(
+            bgcolor="rgba(0,0,0,0)",
+            bordercolor="rgba(0,0,0,0)",
+            borderwidth=0,
+            font=dict(size=11, color="#5c5642"),
+        ),
+        hoverlabel=dict(
+            bgcolor="#fdfdf8",
+            bordercolor="#B85F3D",
+            font=dict(family=UI_FONT_FAMILY, size=12, color="#2b2718"),
+        ),
+        xaxis=dict(
+            showgrid=False,
+            showline=True,
+            linecolor="#cec9bc",
+            linewidth=1,
+            ticks="outside",
+            tickcolor="#cec9bc",
+            ticklen=4,
+            tickfont=dict(size=11, color="#6a6350"),
+            zeroline=False,
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor="rgba(148,138,120,0.14)",
+            gridwidth=1,
+            showline=False,
+            zeroline=False,
+            ticks="",
+            tickfont=dict(size=11, color="#6a6350"),
+        ),
     )
 )
 pio.templates.default = "plotly+portfolio"
 
 # Warm neutrals for reference lines and grid chrome (matches theme, not cool Tailwind grays)
-NEUTRAL_GRID = "#948A78"
-NEUTRAL_RADAR_GRID = "#CEC9BC"
+NEUTRAL_GRID = "#b8ae98"
+NEUTRAL_RADAR_GRID = "#dcd5c2"
 
 
 def finalise_fig(fig, *, unified_hover: bool = False, uirevision: str | None = None):
@@ -89,6 +120,13 @@ SEGMENT_LABELS = [
 ]
 
 
+def segment_labels_for_k(k: int) -> list[str]:
+    """Return k evenly-spaced labels from SEGMENT_LABELS, best → worst."""
+    n = len(SEGMENT_LABELS)
+    indices = np.round(np.linspace(0, n - 1, k)).astype(int)
+    return [SEGMENT_LABELS[i] for i in indices]
+
+
 def render_dataset_subtitle(df: pd.DataFrame) -> None:
     """Standard date-range line under page titles (matches Streamlit body tone)."""
     st.caption(
@@ -108,12 +146,25 @@ summary {
     user-select: none;
 }
 
-/* Keep the big page title flush against its eyebrow badge so the header
-   block reads as one unit (eyebrow → title → lede → accent rule). */
+/* Tabular numerals everywhere numbers need to align (metrics, tables, captions).
+   Makes KPI rows and column ledgers read like a report, not a spreadsheet. */
+[data-testid="stMetric"],
+[data-testid="stMetricValue"],
+[data-testid="stMetricDelta"],
+[data-testid="stDataFrame"],
+.page-header-meta,
+.page-footer-block,
+.dq-grid dd {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* Page header rhythm: eyebrow → title → lede → rule reads as one unit. */
 div[data-testid="stVerticalBlock"] div.page-header-block h1 {
     margin-top: 0.1rem !important;
     margin-bottom: 0.25rem !important;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.015em;
+    line-height: 1.08 !important;
 }
 div.page-header-block .page-header-lede {
     color: #5c5642;
@@ -123,22 +174,23 @@ div.page-header-block .page-header-lede {
     margin: 0.25rem 0 0.35rem 0;
 }
 div.page-header-block .page-header-rule {
-    width: 56px;
-    height: 3px;
-    background: linear-gradient(90deg, #ff8e32 0%, #b85f3d 100%);
-    border-radius: 2px;
-    margin: 0.75rem 0 0.25rem 0;
+    width: 40px;
+    height: 2px;
+    background: #B85F3D;
+    border-radius: 0;
+    margin: 0.85rem 0 0.25rem 0;
 }
 div.page-header-block .page-header-meta {
     color: #6a6350;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    letter-spacing: 0.01em;
     margin: 0;
 }
 div.page-hero-block h1 {
-    font-size: 2.65rem !important;
-    line-height: 1.1 !important;
+    font-size: 2.75rem !important;
+    line-height: 1.05 !important;
     margin: 0.1rem 0 0.5rem 0 !important;
-    letter-spacing: -0.015em;
+    letter-spacing: -0.02em;
 }
 div.page-hero-block .page-hero-tagline {
     color: #5c5642;
@@ -147,24 +199,131 @@ div.page-hero-block .page-hero-tagline {
     max-width: 62ch;
     margin: 0.25rem 0 0 0;
 }
+
+/* Section header: small uppercase eyebrow + bold title. */
 div.section-header {
     display: flex;
     align-items: baseline;
-    gap: 0.55rem;
-    margin: 0.25rem 0 0.1rem 0;
+    gap: 0.6rem;
+    margin: 0.35rem 0 0.25rem 0;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #e8e2d2;
 }
 div.section-header .section-eyebrow {
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    font-size: 0.7rem;
     color: #8a7f66;
     font-weight: 600;
 }
 div.section-header .section-title {
-    font-size: 1.15rem;
+    font-size: 1.12rem;
     font-weight: 600;
     color: #2b2718;
     letter-spacing: -0.005em;
+}
+
+/* Metric cards: soften the hard border, tighten the numeral rhythm, muted label. */
+[data-testid="stMetric"] {
+    border-color: #e8e2d2 !important;
+    background: rgba(253,253,248,0.6);
+    padding: 0.9rem 1rem 0.85rem 1rem !important;
+    box-shadow: none !important;
+    transition: border-color 180ms ease, background-color 180ms ease;
+}
+[data-testid="stMetric"]:hover {
+    border-color: #d8cfb8 !important;
+    background: rgba(253,253,248,0.9);
+}
+[data-testid="stMetricLabel"] p {
+    color: #8a7f66 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.7rem !important;
+    font-weight: 600 !important;
+}
+[data-testid="stMetricValue"] {
+    color: #2b2718 !important;
+    font-weight: 500 !important;
+    letter-spacing: -0.015em;
+    line-height: 1.15 !important;
+}
+
+/* Expander chrome: hairline border, softer surface, refined chevron. */
+[data-testid="stExpander"] {
+    border: 1px solid #e8e2d2 !important;
+    border-radius: 0.5rem !important;
+    background: rgba(253,253,248,0.5);
+    box-shadow: none !important;
+}
+[data-testid="stExpander"] summary {
+    font-size: 0.92rem;
+    color: #3d3a2a;
+    padding: 0.65rem 0.9rem !important;
+}
+[data-testid="stExpander"] summary:hover {
+    color: #B85F3D;
+}
+
+/* Data-quality definition list — used for summary blocks instead of a markdown table. */
+dl.dq-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    column-gap: 1.5rem;
+    row-gap: 0.45rem;
+    margin: 0.5rem 0 0.25rem 0;
+    padding: 0;
+}
+dl.dq-grid dt {
+    color: #8a7f66;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin: 0;
+    align-self: baseline;
+    padding-top: 0.1rem;
+}
+dl.dq-grid dd {
+    color: #2b2718;
+    font-size: 0.95rem;
+    margin: 0;
+    border-bottom: 1px dotted #e8e2d2;
+    padding-bottom: 0.4rem;
+}
+dl.dq-grid dd:last-of-type { border-bottom: none; }
+
+/* Sidebar "Filters" eyebrow spacing. */
+section[data-testid="stSidebar"] .sidebar-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.7rem;
+    color: #8a7f66;
+    font-weight: 600;
+    margin: 0.25rem 0 0.45rem 0;
+}
+
+/* Page footer — small editorial colophon anchoring the bottom of each page. */
+div.page-footer-block {
+    margin: 2.25rem 0 0.5rem 0;
+    padding-top: 0.85rem;
+    border-top: 1px solid #e8e2d2;
+    color: #8a7f66;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+    align-items: baseline;
+}
+div.page-footer-block .footer-sep {
+    color: #cec9bc;
+}
+
+/* Streamlit download / primary button tone, keep cursor consistent. */
+button[kind="secondary"], button[kind="primary"] {
+    cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease;
 }
 </style>
 """
@@ -273,6 +432,45 @@ def render_page_header(
     st.html('<div class="page-header-rule"></div></div>')
 
 
+def render_page_footer(
+    df: pd.DataFrame | None = None,
+    *,
+    note: str | None = None,
+) -> None:
+    """Small editorial colophon placed at the bottom of each page.
+
+    Shows dataset provenance and, when provided, an optional methodology note
+    (e.g. model version, assumptions, caveats).
+    """
+    inject_page_chrome()
+    parts = ['<span>UCI Online Retail II</span>']
+    if df is not None and len(df):
+        span = (
+            f"{df['InvoiceDate'].min():%b %Y} – {df['InvoiceDate'].max():%b %Y}"
+        )
+        parts.append('<span class="footer-sep">·</span>')
+        parts.append(f'<span>{span}</span>')
+    if note:
+        parts.append('<span class="footer-sep">·</span>')
+        parts.append(f'<span>{note}</span>')
+    st.html(
+        '<div class="page-footer-block">' + "".join(parts) + '</div>'
+    )
+
+
+def render_dq_grid(items: list[tuple[str, str]]) -> None:
+    """Render a two-column definition list for data-quality / summary blocks.
+
+    Replaces markdown tables where hairline dividers and uppercase labels read
+    more like a report than a spreadsheet.
+    """
+    inject_page_chrome()
+    rows = "".join(
+        f"<dt>{label}</dt><dd>{value}</dd>" for label, value in items
+    )
+    st.html(f'<dl class="dq-grid">{rows}</dl>')
+
+
 def section(title: str, eyebrow: str | None = None) -> None:
     """Editorial-style section header: small uppercase eyebrow + bold title.
 
@@ -335,7 +533,8 @@ def assign_segment_labels(rfm):
     m_norm = (stats["Monetary"] - stats["Monetary"].min()) / rng["Monetary"]
     score = (1 - r_norm) + f_norm + m_norm
     ranked = score.sort_values(ascending=False).index
-    label_map = {cid: SEGMENT_LABELS[rank] for rank, cid in enumerate(ranked)}
+    labels = segment_labels_for_k(len(ranked))
+    label_map = {cid: labels[rank] for rank, cid in enumerate(ranked)}
     return rfm["Cluster"].map(label_map)
 
 
@@ -675,11 +874,7 @@ def build_clv_summary(df):
 
 def apply_sidebar_filters(df):
     with st.sidebar:
-        st.html(
-            '<p style="text-transform:uppercase; letter-spacing:0.12em; '
-            'font-size:0.72rem; color:#8a7f66; font-weight:600; '
-            'margin:0.25rem 0 0.35rem 0;">Filters</p>'
-        )
+        st.html('<p class="sidebar-eyebrow">Filters</p>')
         with st.expander("Data scope", expanded=True, icon=":material/tune:"):
             countries = ["All"] + sorted(df["Country"].unique().tolist())
             selected_country = st.selectbox("Country", countries)

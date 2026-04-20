@@ -15,6 +15,7 @@ from utils import (
     apply_sidebar_filters,
     build_clv_summary,
     render_page_header,
+    render_page_footer,
     section,
     finalise_fig,
 )
@@ -749,3 +750,5 @@ st.download_button(
     mime="text/csv",
     icon=":material/download:",
 )
+
+render_page_footer(df, note="Lifetime value · BG/NBD + Gamma-Gamma")

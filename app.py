@@ -7,6 +7,7 @@ from utils import (
     apply_sidebar_filters,
     inject_page_chrome,
     load_data,
+    render_page_footer,
     section,
 )
 
@@ -18,7 +19,7 @@ st.set_page_config(
     layout="wide",
 )
 
-st.logo("static/jordan_cheney_logo_new.png", size="large")
+st.logo("static/jordan_cheney_logo_dark.png", size="large")
 
 PAGE_CARDS = [
     ("overview", "app_pages/1_Overview.py"),
@@ -100,6 +101,8 @@ def home_page():
         "Each module has its own controls and works off the same sidebar filters."
     )
     _render_module_cards()
+
+    render_page_footer(df, note="Customer analytics · home")
 
 
 navigation = st.navigation(

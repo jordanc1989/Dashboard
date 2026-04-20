@@ -11,9 +11,11 @@ from utils import (
     run_clustering,
     elbow_data,
     assign_segment_labels,
+    segment_labels_for_k,
     SEGMENT_COLORS,
     SEGMENT_LABELS,
     render_page_header,
+    render_page_footer,
     section,
     NEUTRAL_RADAR_GRID,
     finalise_fig,
@@ -42,26 +44,30 @@ if max_k < 2:
 else:
     default_k = min(4, max_k)
 
-    section("Clustering controls", eyebrow="Model inputs")
+    # ── k selector + silhouette ─────────────────────────────────────────
+    st.space("small")
     with st.container(border=True):
-        ctrl_cols = st.columns([2, 3])
+        ctrl_cols = st.columns([3, 1, 1])
         with ctrl_cols[0]:
+            n_clusters = st.select_slider(
+                "Number of segments (k)",
+                options=list(range(2, max_k + 1)),
+                value=default_k,
+                label_visibility='visible'
+            )
+        with ctrl_cols[1]:
             winsorise = st.toggle(
                 "Winsorise outliers",
                 value=True,
                 help="Clip Recency / Frequency / Monetary at the 1st and 99th "
-                "percentiles before fitting K-means. Helps with long-tailed spend.",
+                "percentiles before fitting. Reduces the influence of extreme outliers.",
             )
-        with ctrl_cols[1]:
-            st.caption(
-                "Winsorising reduces the influence of extreme outliers so clusters "
-                "reflect the broader customer base rather than a handful of whales."
-            )
+        sil_slot = ctrl_cols[2].empty()
 
     # ── Elbow / silhouette chart ──────────────
     with st.expander(
         "Choose number of clusters (Elbow method)",
-        expanded=True,
+        expanded=False,
         icon=":material/insights:",
     ):
         st.markdown("""
@@ -122,28 +128,20 @@ else:
             finalise_fig(fig_sil)
             st.plotly_chart(fig_sil, width="stretch")
 
-    # ── k selector ──────────────────────────────────────────────────────
-    st.space("small")
-    with st.container(border=True):
-        n_clusters = st.select_slider(
-            "Number of segments (k)",
-            options=list(range(2, max_k + 1)),
-            value=default_k,
-            label_visibility='visible'
-        )
-
     rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
     rfm["Segment"] = assign_segment_labels(rfm)
+    active_labels = segment_labels_for_k(n_clusters)
     rfm["Segment"] = pd.Categorical(
         rfm["Segment"],
-        categories=SEGMENT_LABELS[:n_clusters],
+        categories=[l for l in active_labels if l in rfm["Segment"].values],
         ordered=True
     )
 
-    sil_str = f"{sil:.2f}" if not np.isnan(sil) else "n/a"
-    st.caption(
-        f"Silhouette score for k={n_clusters}: **{sil_str}** "
-        "(higher = better defined clusters)"
+    sil_str = f"{sil:.2f}" if sil is not None and not np.isnan(sil) else "n/a"
+    sil_slot.metric(
+        "Silhouette score",
+        sil_str,
+        help="Measures how well-separated the clusters are (0–1). Higher is better.",
     )
 
     # ── Segment summary table ───────────────────────────────────────────
@@ -184,7 +182,7 @@ else:
 
     # ── Scatter: Frequency vs Monetary, coloured by segment ────
     st.space("small")
-    section("Segment visualisation", eyebrow="Distributions")
+    section("Segment visualisation", eyebrow="Breakdown")
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -194,7 +192,7 @@ else:
             y="Monetary",
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
-            category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
+            category_orders={"Segment": list(segment_labels_for_k(n_clusters))},
             hover_data=["Customer ID", "Recency"],
             title="Frequency vs monetary by segment",
             labels={"Monetary": "Total Spend (£)"},
@@ -211,7 +209,7 @@ else:
             y="Monetary",
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
-            category_orders={"Segment": list(SEGMENT_LABELS[:n_clusters])},
+            category_orders={"Segment": list(segment_labels_for_k(n_clusters))},
             title="Spend distribution by segment",
             labels={"Monetary": "Total Spend (£)"},
         )
@@ -221,8 +219,7 @@ else:
         st.plotly_chart(fig_box, width="stretch")
 
     # ── Radar chart: normalised RFM means per segment ─────────
-    st.space("medium")
-    section("Segment radar chart", eyebrow="Normalised RFM")
+    st.space("small")
     radar_df = (
         rfm.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
         .mean()
@@ -230,10 +227,12 @@ else:
     )
 
     radar_norm = radar_df.copy()
-    radar_norm["Recency"] = 1 - (radar_norm["Recency"] / radar_norm["Recency"].max())
+    rec_max = radar_norm["Recency"].max()
+    radar_norm["Recency"] = 1 - (radar_norm["Recency"] / rec_max) if rec_max else radar_norm["Recency"]
 
     for col in ["Frequency", "Monetary"]:
-        radar_norm[col] = radar_norm[col] / radar_norm[col].max()
+        col_max = radar_norm[col].max()
+        radar_norm[col] = radar_norm[col] / col_max if col_max else radar_norm[col]
 
     categories = ["Recency (inv.)", "Frequency", "Monetary"]
     fig_radar = go.Figure()
@@ -276,3 +275,5 @@ else:
         mime="text/csv",
         icon=":material/download:",
     )
+
+render_page_footer(df, note="Segmentation · K-means on Box-Cox RFM")

@@ -28,6 +28,7 @@ from utils import (
     build_churn_dataset,
     load_data,
     render_page_header,
+    render_page_footer,
     section,
     finalise_fig,
 )
@@ -521,3 +522,5 @@ st.caption(
     "not an unseen future. For production use you would retrain on the full "
     "history and score current customers using today as the cutoff."
 )
+
+render_page_footer(df, note="Classification · random forest, time-split labels")

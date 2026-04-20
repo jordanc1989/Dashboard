@@ -13,6 +13,7 @@ from utils import (
     build_revenue_series,
     load_data,
     render_page_header,
+    render_page_footer,
     section,
     finalise_fig,
 )
@@ -503,3 +504,5 @@ st.caption(
     "identifiable but rests on only ~2 full cycles. Forecasts more than a "
     "season ahead should be treated as indicative."
 )
+
+render_page_footer(df, note="Forecasting · SARIMA & Theta")

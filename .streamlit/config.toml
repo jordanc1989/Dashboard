@@ -35,7 +35,7 @@ backgroundColor = "#fdfdf8"
 secondaryBackgroundColor = "#ecebe3"
 textColor = "#3d3a2a"
 linkColor = "#2a2418"
-borderColor = "#d3d2ca"
+borderColor = "#e3ddcf"
 showWidgetBorder = true
 baseRadius = "0.75rem"
 buttonRadius = "full"
@@ -56,7 +56,8 @@ chartCategoricalColors = [
 ]
 
 [theme.sidebar]
-backgroundColor = "#e5d5b6"
-secondaryBackgroundColor = "#ecebe3"
+backgroundColor = "#ece3cf"
+secondaryBackgroundColor = "#f2efe4"
 headingFontSizes = ["1.6rem", "1.4rem", "1.2rem"]
 dataframeHeaderBackgroundColor = "#e4e4e0"
+borderColor = "#d9d1bd"

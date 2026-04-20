@@ -8,6 +8,8 @@ from utils import (
     load_raw_count,
     apply_sidebar_filters,
     render_page_header,
+    render_page_footer,
+    render_dq_grid,
     section,
     finalise_fig,
 )
@@ -26,18 +28,19 @@ render_page_header("overview", df)
 # ── Data quality summary ───────
 with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
-    st.markdown(f"""
-    | Check | Result |
-    |---|---|
-    | Raw rows | {raw_count:,} |
-    | After cleaning | {len(df):,} |
-    | Rows removed | {raw_count - len(df):,} ({(1 - len(df)/raw_count)*100:.1f}%) |
-    | Unique customers | {df['Customer ID'].nunique():,} |
-    | Date range | {df['InvoiceDate'].min().date()} → {df['InvoiceDate'].max().date()} |
-    | Guest checkout rows | {df['is_guest'].sum():,} ({df['is_guest'].mean()*100:.1f}%) |
-    | Registered customer rows | {(~df['is_guest']).sum():,} |
-    """)
+    removed = raw_count - len(df)
+    removed_pct = (1 - len(df) / raw_count) * 100
+    guest_rows = int(df["is_guest"].sum())
     guest_pct = df["is_guest"].mean() * 100
+    render_dq_grid([
+        ("Raw rows", f"{raw_count:,}"),
+        ("After cleaning", f"{len(df):,}"),
+        ("Rows removed", f"{removed:,} ({removed_pct:.1f}%)"),
+        ("Unique customers", f"{df['Customer ID'].nunique():,}"),
+        ("Date range", f"{df['InvoiceDate'].min():%d %b %Y} – {df['InvoiceDate'].max():%d %b %Y}"),
+        ("Guest checkouts", f"{guest_rows:,} ({guest_pct:.1f}%)"),
+        ("Registered customers", f"{(~df['is_guest']).sum():,}"),
+    ])
     st.caption(
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
@@ -153,3 +156,5 @@ with st.expander("View raw data sample", icon=":material/table_view:"):
             "InvoiceDate": st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm"),
         },
     )
+
+render_page_footer(df, note="Exploration · headline KPIs")

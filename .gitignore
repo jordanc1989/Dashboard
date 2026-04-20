@@ -4,6 +4,5 @@ __pycache__/
 *.code-workspace
 .devcontainer/
 .vscode/
-.cursor/
 .agents/
-.agent/
+.claude/
