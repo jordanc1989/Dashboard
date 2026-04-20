@@ -20,6 +20,7 @@ from utils import (
 )
 
 WEEKS_PER_MONTH = 4.345  # 365.25 / 12 / 7
+DEFAULT_MAX_CUSTOMERS_FOR_CLV = 2500
 
 def _df_hash(df: pd.DataFrame) -> str:
     return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
@@ -69,29 +70,46 @@ if len(summary) < 20:
 # ── Controls ───────────────────────────────────────────────────────────────────
 section("Model controls", eyebrow="Horizon & inference")
 with st.container(border=True):
-    col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns(4)
-    with col_ctrl1:
-        horizon_months = st.slider("Prediction horizon (months)", min_value=1, max_value=12, value=3)
-    with col_ctrl2:
-        annual_rate = st.slider(
-            "Annual discount rate (%)",
-            min_value=0.0, max_value=10.0, value=3.5, step=0.5,
-            help="Cost of capital used to discount future cash flows to present value. 3-5% is typical for stable retailers."
-        ) / 100
-        monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
+    with st.form("clv_controls"):
+        col_ctrl1, col_ctrl2, col_ctrl3, col_ctrl4 = st.columns(4)
+        with col_ctrl1:
+            horizon_months = st.slider("Prediction horizon (months)", min_value=1, max_value=12, value=3)
+        with col_ctrl2:
+            annual_rate = st.slider(
+                "Annual discount rate (%)",
+                min_value=0.0, max_value=10.0, value=3.5, step=0.5,
+                help="Cost of capital used to discount future cash flows to present value. 3-5% is typical for stable retailers."
+            ) / 100
 
-    with col_ctrl3:
-        winsorise_monetary = st.toggle(
-            "Winsorise spend (99th pct)",
-            value=True,
-            help="Clips extreme values at the 99th percentile before fitting the Gamma-Gamma model. Reduces the influence of one-off large orders on everyone's predicted AOV.",
-        )
-    with col_ctrl4:
-        use_mcmc = st.toggle(
-            "MCMC sampling",
-            value=False,
-            help="Full Bayesian inference. Adds 90% credible intervals to every CLV estimate but takes a few minutes to run. Results cached after the first run.",
-        )
+        with col_ctrl3:
+            winsorise_monetary = st.toggle(
+                "Winsorise spend (99th pct)",
+                value=True,
+                help="Clips extreme values at the 99th percentile before fitting the Gamma-Gamma model. Reduces the influence of one-off large orders on everyone's predicted AOV.",
+            )
+            low_memory_mode = st.toggle(
+                "Low-memory mode",
+                value=True,
+                help="Reduces peak memory by fitting CLV on a capped customer set. Recommended for Streamlit Community Cloud.",
+            )
+        with col_ctrl4:
+            use_mcmc = st.toggle(
+                "MCMC sampling",
+                value=False,
+                help="Full Bayesian inference. Adds 90% credible intervals to every prediction, but can consume substantial RAM.",
+            )
+            max_customers_for_fit = st.slider(
+                "Max customers to model",
+                min_value=500,
+                max_value=5000,
+                step=250,
+                value=DEFAULT_MAX_CUSTOMERS_FOR_CLV,
+                disabled=not low_memory_mode,
+                help="When low-memory mode is on, fit models on the most active customers up to this cap.",
+            )
+        st.form_submit_button("Apply model settings", type="primary")
+
+monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
 
 if use_mcmc and not st.session_state.get("_mcmc_toast_shown"):
     st.toast("MCMC mode enabled — first run takes ~1-2 minutes. Results are cached once fitted.")
@@ -100,18 +118,31 @@ if not use_mcmc:
     st.session_state["_mcmc_toast_shown"] = False
 
 horizon_weeks = horizon_months * WEEKS_PER_MONTH
-fit_method    = "mcmc" if use_mcmc else "map"
+fit_method = "mcmc" if use_mcmc else "map"
+
+fit_summary = summary.copy()
+if low_memory_mode and len(fit_summary) > max_customers_for_fit:
+    # Keep the most information-rich customers for model fitting.
+    fit_summary = (
+        fit_summary
+        .sort_values(["frequency", "monetary_value", "T"], ascending=False)
+        .head(max_customers_for_fit)
+        .copy()
+    )
+    st.caption(
+        f"Low-memory mode active: fitting on {len(fit_summary):,} of {len(summary):,} customers."
+    )
 
 # ── Fit models ────────────────
-bg_data = summary[summary["frequency"] > 0][["customer_id", "frequency", "recency", "T"]].copy()
-gg_data = summary[(summary["frequency"] > 0) & (summary["monetary_value"] > 0)][["customer_id", "frequency", "monetary_value"]].copy()
+bg_data = fit_summary[fit_summary["frequency"] > 0][["customer_id", "frequency", "recency", "T"]].copy()
+gg_data = fit_summary[(fit_summary["frequency"] > 0) & (fit_summary["monetary_value"] > 0)][["customer_id", "frequency", "monetary_value"]].copy()
 
 if winsorise_monetary:
     cap = gg_data["monetary_value"].quantile(0.99)
     gg_data["monetary_value"] = gg_data["monetary_value"].clip(upper=cap)
 
 
-@st.cache_resource
+@st.cache_resource(max_entries=4)
 def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
     bgm = BetaGeoModel()
     with warnings.catch_warnings():
@@ -129,7 +160,7 @@ def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
     return bgm
 
 
-@st.cache_resource
+@st.cache_resource(max_entries=4)
 def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
     ggm = GammaGammaModel()
     with warnings.catch_warnings():
@@ -192,7 +223,7 @@ expected_aov = (
 )
 
 # GammaGamma CLV is only defined for repeat buyers with positive spend.
-clv_input = summary[(summary["frequency"] > 0) & (summary["monetary_value"] > 0)].copy()
+clv_input = fit_summary[(fit_summary["frequency"] > 0) & (fit_summary["monetary_value"] > 0)].copy()
 clv_da = ggm.expected_customer_lifetime_value(
     transaction_model=bgm,
     data=clv_input,

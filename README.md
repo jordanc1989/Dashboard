@@ -5,7 +5,7 @@ Interactive Streamlit dashboard for customer behavior analytics using the [UCI O
 The app includes:
 - sales and product performance views,
 - RFM customer segmentation,
-- cohort retention analysis,
+- churn propensity modeling,
 - probabilistic CLV prediction, and
 - revenue time-series forecasting.
 
@@ -13,7 +13,7 @@ The app includes:
 
 - **Overview**: KPI cards, monthly trends, and top countries/products by revenue
 - **RFM Segmentation**: K-Means clustering with elbow/silhouette diagnostics and segment labels
-- **Cohort Retention**: month-on-month retention heatmap and retention curves
+- **Churn Prediction**: random forest classification with threshold tuning, confusion matrix, and precision-recall curves
 - **CLV Prediction**: BG/NBD + Gamma-Gamma modeling via `pymc-marketing`
 - **Revenue Forecasting**: SARIMA and Theta-method models (`statsmodels`) with holdout backtest metrics and 90% confidence intervals
 
@@ -32,13 +32,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3) Add the dataset
-
-Place the Excel file at:
-
-`data/online_retail.xlsx`
-
-### 4) Run the app
+### 3) Run the app
 
 ```bash
 streamlit run app.py
@@ -58,7 +52,7 @@ streamlit run app.py
 ├── utils.py
 ├── requirements.txt
 └── data/
-    └── online_retail.xlsx
+    └── online_retail_II.csv
 ```
 
 ## Dependencies
@@ -68,4 +62,9 @@ streamlit run app.py
 - `plotly` for interactive visualizations
 - `scikit-learn`, `scipy` for RFM clustering and transformations
 - `statsmodels` for SARIMA and Theta-method forecasting
-- `pymc-marketing`, `pytensor` for CLV modeling
+- `pymc-marketing`, `pytensor`, `nutpie` for CLV modeling
+
+## Notes
+
+- The app currently reads `data/online_retail_II.csv` directly (in `utils.py`).
+- If dependency installation fails, ensure `requirements.txt` includes all packages imported by the code (notably `numpy` and `scipy`).

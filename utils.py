@@ -336,20 +336,43 @@ def assign_segment_labels(rfm):
     return rfm["Cluster"].map(label_map)
 
 
-@st.cache_data
+@st.cache_data(max_entries=1)
 def _load_raw():
     """Single source of truth for the raw CSV read.
 
     Everything downstream (orders, cancels, raw counts) derives from this
     cached frame to avoid re-reading the file three times.
     """
-    df = pd.read_csv("data/online_retail_II.csv")
+    df = pd.read_csv(
+        "data/online_retail_II.csv",
+        usecols=[
+            "Invoice",
+            "StockCode",
+            "Description",
+            "Quantity",
+            "InvoiceDate",
+            "Price",
+            "Customer ID",
+            "Country",
+        ],
+        dtype={
+            "Invoice": "string",
+            "StockCode": "string",
+            "Description": "string",
+            "Quantity": "int32",
+            "Price": "float32",
+            "Customer ID": "float64",
+            "Country": "category",
+        },
+        parse_dates=["InvoiceDate"],
+        low_memory=False,
+    )
     df["Invoice"] = df["Invoice"].astype(str)
     df["StockCode"] = df["StockCode"].astype(str)
     return df
 
 
-@st.cache_data
+@st.cache_data(max_entries=2)
 def load_data():
     df = _retail_csv_line_filters(_load_raw())
 
@@ -386,19 +409,18 @@ def load_data():
     df = df.drop_duplicates()
 
     df["Revenue"] = df["Quantity"] * df["Price"]
-    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"], errors="coerce")
     df = df.dropna(subset=["InvoiceDate"])
     df["Month"] = df["InvoiceDate"].dt.to_period("M").astype(str)
 
     return df
 
 
-@st.cache_data
+@st.cache_data(max_entries=1)
 def load_raw_count():
     return len(_load_raw())
 
 
-@st.cache_data
+@st.cache_data(max_entries=2)
 def load_cancels():
     """Load only cancel (return) invoices, which `load_data` strips out.
 
@@ -410,7 +432,6 @@ def load_cancels():
     df = df[df["Invoice"].str.startswith("C")]
     df = df.dropna(subset=["Customer ID"])
     df["Customer ID"] = df["Customer ID"].astype("Int64").astype("string")
-    df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"], errors="coerce")
     df = df.dropna(subset=["InvoiceDate"])
     return df[["Customer ID", "InvoiceDate", "Invoice"]]
 
@@ -615,7 +636,7 @@ def build_churn_dataset(df, churn_window_days=90):
     return features, meta
 
 
-@st.cache_data(max_entries=16)
+@st.cache_data(max_entries=8)
 def build_clv_summary(df):
     """Build the per-customer RFM summary pymc-marketing expects.
 
