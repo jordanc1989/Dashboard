@@ -312,6 +312,9 @@ DESCRIPTION_NOISE_TERMS = [
 def _retail_csv_line_filters(df):
     """Drop fee/adjustment-style lines and invalid rows. Expects Invoice/StockCode as str."""
     out = df.copy()
+    if pd.api.types.is_categorical_dtype(out["Country"]):
+        if "Ireland" not in out["Country"].cat.categories:
+            out["Country"] = out["Country"].cat.add_categories(["Ireland"])
     out["Country"] = out["Country"].replace({"EIRE": "Ireland"})
     out = out[~out["Country"].isin(INVALID_RETAIL_COUNTRIES)]
     out = out.dropna(subset=["Description"])
