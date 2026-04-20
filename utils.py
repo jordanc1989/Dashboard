@@ -48,7 +48,7 @@ pio.templates["portfolio"] = go.layout.Template(
             xanchor="left",
             pad=dict(b=14),
         ),
-        margin=dict(t=48, l=8, r=8, b=8),
+        margin=dict(t=40, l=20, r=12, b=8),
         colorway=list(CHART_COLORWAY),
         legend=dict(
             bgcolor="rgba(0,0,0,0)",
@@ -159,40 +159,31 @@ summary {
     font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
-/* Page header rhythm: eyebrow → title → lede → rule reads as one unit. */
-div[data-testid="stVerticalBlock"] div.page-header-block h1 {
-    margin-top: 0.1rem !important;
-    margin-bottom: 0.25rem !important;
-    letter-spacing: -0.015em;
+/* Page title: consistent letter-spacing and tight line-height across all pages.
+   Streamlit renders st.title() as a sibling component, not a child of the
+   injected page-header-block div, so we target the Streamlit heading wrapper. */
+[data-testid="stHeadingWithActionElements"] h1 {
+    letter-spacing: -0.018em !important;
     line-height: 1.08 !important;
+    margin-bottom: 0.2rem !important;
 }
-div.page-header-block .page-header-lede {
+
+/* Page header lede, rule, and meta are st.html() siblings (not children of the
+   header wrapper div), so selectors target the elements directly. */
+.page-header-lede {
     color: #5c5642;
     font-size: 1.02rem;
     line-height: 1.55;
     max-width: 72ch;
     margin: 0.25rem 0 0.35rem 0;
 }
-div.page-header-block .page-header-rule {
-    width: 40px;
-    height: 2px;
-    background: #B85F3D;
-    border-radius: 0;
-    margin: 0.85rem 0 0.25rem 0;
-}
-div.page-header-block .page-header-meta {
+.page-header-meta {
     color: #6a6350;
     font-size: 0.82rem;
     letter-spacing: 0.01em;
     margin: 0;
 }
-div.page-hero-block h1 {
-    font-size: 2.75rem !important;
-    line-height: 1.05 !important;
-    margin: 0.1rem 0 0.5rem 0 !important;
-    letter-spacing: -0.02em;
-}
-div.page-hero-block .page-hero-tagline {
+.page-hero-tagline {
     color: #5c5642;
     font-size: 1.08rem;
     line-height: 1.55;
@@ -205,8 +196,8 @@ div.section-header {
     display: flex;
     align-items: baseline;
     gap: 0.6rem;
-    margin: 0.35rem 0 0.25rem 0;
-    padding-bottom: 0.35rem;
+    margin: 1.5rem 0 0.65rem 0;
+    padding-bottom: 0.4rem;
     border-bottom: 1px solid #e8e2d2;
 }
 div.section-header .section-eyebrow {
@@ -320,6 +311,22 @@ div.page-footer-block .footer-sep {
     color: #cec9bc;
 }
 
+/* Captions: slightly muted, generous line-height for readability. */
+[data-testid="stCaptionContainer"] p {
+    color: #7a7060 !important;
+    line-height: 1.55;
+}
+
+/* Bordered containers: very subtle warm tint distinguishes interactive control
+   panels and cards from the plain page background. */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: rgba(236,228,210,0.22) !important;
+    transition: border-color 200ms ease;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: #d0c9b5 !important;
+}
+
 /* Streamlit download / primary button tone, keep cursor consistent. */
 button[kind="secondary"], button[kind="primary"] {
     cursor: pointer;
@@ -347,8 +354,8 @@ PAGE_META: dict[str, dict[str, str]] = {
         "icon": ":material/analytics:",
         "title": "Overview",
         "lede": (
-            "Headline revenue, customer, and order KPIs across the UCI Online Retail "
-            "II dataset — paired with monthly trend and top-line breakdowns by country "
+            "Headline revenue, customer and order KPIs across the UCI Online Retail "
+            "II dataset, with monthly trend and top-line breakdowns by country "
             "and product."
         ),
     },
@@ -359,8 +366,8 @@ PAGE_META: dict[str, dict[str, str]] = {
         "title": "RFM segmentation",
         "lede": (
             "Customers are scored on Recency (days since last purchase), Frequency "
-            "(orders), and Monetary (total spend). K-means groups them into "
-            "actionable segments for targeted marketing."
+            "(orders), and Monetary (total spend). K-means groups them intelligently into "
+            "segments for targeted marketing."
         ),
     },
     "churn": {
@@ -370,7 +377,7 @@ PAGE_META: dict[str, dict[str, str]] = {
         "title": "Churn prediction",
         "lede": (
             "Non-contractual retail has no explicit churn signal, so we fabricate "
-            "one from a time split. A random forest then predicts which registered "
+            "one from a time split. A random forest model then predicts which registered "
             "customers are drifting towards dormancy."
         ),
     },
@@ -382,7 +389,7 @@ PAGE_META: dict[str, dict[str, str]] = {
         "lede": (
             "Two probabilistic models are chained: BG/NBD forecasts when customers "
             "will purchase again, and Gamma-Gamma forecasts how much they'll spend. "
-            "Together they deliver per-customer lifetime value."
+            "Together they deliver a per-customer lifetime value."
         ),
     },
     "forecast": {
@@ -392,8 +399,7 @@ PAGE_META: dict[str, dict[str, str]] = {
         "title": "Revenue forecasting",
         "lede": (
             "Classical time-series models project future revenue from the historical "
-            "transaction stream. SARIMA captures seasonality and trend; Theta offers "
-            "a robust M3-competition-winning baseline."
+            "transaction stream, with SARIMA and Theta models available."
         ),
     },
 }
@@ -429,7 +435,7 @@ def render_page_header(
     effective_lede = lede if lede is not None else meta.get("lede")
     if effective_lede:
         st.html(f'<p class="page-header-lede">{effective_lede}</p>')
-    st.html('<div class="page-header-rule"></div></div>')
+    st.html('</div>')
 
 
 def render_page_footer(

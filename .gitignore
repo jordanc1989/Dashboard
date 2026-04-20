@@ -2,7 +2,6 @@ __pycache__/
 .DS_Store
 *.pyc
 *.code-workspace
-.devcontainer/
 .vscode/
 .agents/
 .claude/

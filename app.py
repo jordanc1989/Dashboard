@@ -42,7 +42,7 @@ def _render_hero(df: pd.DataFrame) -> None:
         'dataset, from headline revenue KPIs to probabilistic CLV and time-series revenue forecasts.'
         '</p>'
     )
-    st.html('<div class="page-header-rule"></div></div>')
+    st.html('</div>')
 
 
 def _render_glance(df: pd.DataFrame) -> None:

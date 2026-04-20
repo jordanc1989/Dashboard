@@ -46,7 +46,7 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
 # ── KPI row ─────────
-section("Headline KPIs", eyebrow="Last 12 months sparkline")
+section("Headline KPIs", eyebrow="Trailing 12 months")
 monthly = df.groupby("Month").agg(
     revenue=("Revenue", "sum"),
     customers=("Customer ID", "nunique"),
