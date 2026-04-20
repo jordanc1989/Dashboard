@@ -240,10 +240,11 @@ div.section-header .section-title {
     line-height: 1.15 !important;
 }
 
-/* Expander chrome: hairline border, softer surface, refined chevron. */
+/* Expander chrome: softer surface, suppress default shadow.
+   Border and border-radius are owned by the theme (baseRadius 0.75rem) on
+   the inner <details> element — adding our own border here creates a double
+   border with mismatched corner radii, so we leave those to the theme. */
 [data-testid="stExpander"] {
-    border: 1px solid #e8e2d2 !important;
-    border-radius: 0.5rem !important;
     background: rgba(253,253,248,0.5);
     box-shadow: none !important;
 }
