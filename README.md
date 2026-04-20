@@ -3,19 +3,24 @@
 Interactive Streamlit dashboard for customer behavior analytics using the [UCI Online Retail Dataset](https://archive.ics.uci.edu/dataset/352/online+retail).
 
 The app includes:
-- sales and product performance views,
-- RFM customer segmentation,
-- churn propensity modeling,
-- probabilistic CLV prediction, and
-- revenue time-series forecasting.
+- sales and product performance views
+- RFM customer segmentation
+- churn propensity modelling
+- probabilistic CLV prediction
+- revenue time-series forecasting
 
 ## Features
 
-- **Overview**: KPI cards, monthly trends, and top countries/products by revenue
-- **RFM Segmentation**: K-Means clustering with elbow/silhouette diagnostics and segment labels
-- **Churn Prediction**: random forest classification with threshold tuning, confusion matrix, and precision-recall curves
-- **CLV Prediction**: BG/NBD + Gamma-Gamma modeling via `pymc-marketing`
+- **Overview**: KPI cards, monthly trends and top countries/products by revenue
+- **RFM Segmentation**: K-Means clustering with elbow/silhouette previews and segment labels
+- **Churn Prediction**: random forest classification with threshold tuning, confusion matrix and precision-recall / ROC curves
+- **CLV Prediction**: BG/NBD + Gamma-Gamma modelling via `pymc-marketing`
 - **Revenue Forecasting**: SARIMA and Theta-method models (`statsmodels`) with holdout backtest metrics and 90% confidence intervals
+
+## To do
+
+- Enhance segment labelling (currently a static list chosen in order)
+
 
 ## Setup
 
@@ -59,10 +64,10 @@ streamlit run app.py
 
 - `streamlit` for the app UI
 - `pandas`, `numpy` for data wrangling
-- `plotly` for interactive visualizations
+- `plotly` for interactive visualisations
 - `scikit-learn`, `scipy` for RFM clustering and transformations
 - `statsmodels` for SARIMA and Theta-method forecasting
-- `pymc-marketing`, `pytensor`, `nutpie` for CLV modeling
+- `pymc-marketing`, `pytensor`, `nutpie` for CLV modelling
 
 ## Notes
 
