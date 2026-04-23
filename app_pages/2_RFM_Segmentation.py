@@ -200,7 +200,12 @@ else:
             labels={"Monetary": "Total Spend (£)"},
             opacity=0.65,
         )
-        fig_scatter.update_yaxes(type="log", tickprefix="£", tickformat=",")
+        fig_scatter.update_yaxes(
+            type="log",
+            tickvals=[1, 10, 100, 1_000, 10_000, 100_000, 1_000_000],
+            ticktext=["£1", "£10", "£100", "£1,000", "£10,000", "£100,000", "£1,000,000"],
+        )
+        fig_scatter.update_traces(marker_size=4)
         finalise_fig(fig_scatter)
         st.plotly_chart(fig_scatter, width="stretch")
 
@@ -216,7 +221,11 @@ else:
             labels={"Monetary": "Total Spend (£)"},
         )
         fig_box.update_layout(showlegend=False, dragmode=False)
-        fig_box.update_yaxes(type="log", tickprefix="£", tickformat=",")
+        fig_box.update_yaxes(
+            type="log",
+            tickvals=[1, 10, 100, 1_000, 10_000, 100_000, 1_000_000],
+            ticktext=["£1", "£10", "£100", "£1,000", "£10,000", "£100,000", "£1,000,000"],
+        )
         finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
 
