@@ -1,0 +1,16 @@
+[project]
+name = "Dashboard"
+version = "0.1.0"
+description = "Customer Lifetime Value Dashboard in Streamlit"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "plotly>=6.7.0",
+    "pymc-marketing>=0.19.3",
+    "scikit-learn>=1.8.0",
+    "scipy>=1.17.1",
+    "streamlit>=1.56.0",
+    "watchdog>=6.0.0",
+]
