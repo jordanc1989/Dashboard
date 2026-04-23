@@ -8,3 +8,4 @@ __pycache__/
 claude.md
 .python-version
 pyproject.toml
+.venv/

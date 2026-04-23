@@ -12,7 +12,7 @@ from utils import (
 st.set_page_config(
     page_title="Customer analytics dashboard",
     page_icon="static/jordan_cheney_logo_new.png",
-    layout="wide",
+    layout="wide"
 )
 
 st.logo("static/jordan_cheney_logo_dark.png", size="large")
@@ -22,7 +22,7 @@ PAGE_CARDS = [
     ("rfm", "app_pages/2_RFM_Segmentation.py"),
     ("churn", "app_pages/3_Churn_Prediction.py"),
     ("clv", "app_pages/4_CLV_Prediction.py"),
-    ("forecast", "app_pages/5_Revenue_Forecasting.py"),
+    ("forecast", "app_pages/5_Revenue_Forecasting.py")
 ]
 
 
@@ -56,7 +56,7 @@ def _render_glance(df: pd.DataFrame) -> None:
 
 
 def _render_module_cards() -> None:
-    """Module grid - each card: icon + eyebrow + title + description + open link."""
+    """Module grid. Each card: icon + eyebrow + title + description + open link."""
     for row_start in range(0, len(PAGE_CARDS), 2):
         cols = st.columns(2, gap="medium")
         for col, offset in zip(cols, (0, 1)):
@@ -70,14 +70,14 @@ def _render_module_cards() -> None:
                     st.badge(
                         meta["eyebrow"],
                         color=meta["eyebrow_color"],
-                        icon=meta["icon"],
+                        icon=meta["icon"]
                     )
                     st.markdown(f"#### {meta['title']}")
                     st.caption(meta["lede"])
                     st.page_link(
                         page_path,
                         label=f"Open {meta['title'].lower()}",
-                        icon=":material/arrow_forward:",
+                        icon=":material/arrow_forward:"
                     )
 
 
@@ -108,7 +108,7 @@ navigation = st.navigation(
         st.Page("app_pages/4_CLV_Prediction.py", title="CLV prediction", icon=":material/payments:"),
         st.Page("app_pages/5_Revenue_Forecasting.py", title="Revenue forecasting", icon=":material/show_chart:"),
     ],
-    position="sidebar",
+    position="sidebar"
 )
 
 navigation.run()

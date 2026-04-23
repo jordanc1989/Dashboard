@@ -224,6 +224,8 @@ expected_aov = (
 
 # GammaGamma CLV is only defined for repeat buyers with positive spend.
 clv_input = fit_summary[(fit_summary["frequency"] > 0) & (fit_summary["monetary_value"] > 0)].copy()
+if winsorise_monetary:
+    clv_input["monetary_value"] = clv_input["monetary_value"].clip(upper=cap)
 clv_da = ggm.expected_customer_lifetime_value(
     transaction_model=bgm,
     data=clv_input,
