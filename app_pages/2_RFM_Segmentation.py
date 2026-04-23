@@ -11,9 +11,7 @@ from utils import (
     run_clustering,
     elbow_data,
     assign_segment_labels,
-    segment_labels_for_k,
-    SEGMENT_COLORS,
-    SEGMENT_LABELS,
+    MAX_SEGMENTS,
     render_page_header,
     section,
     NEUTRAL_RADAR_GRID,
@@ -33,7 +31,7 @@ render_page_header("rfm", df)
 
 df_customers = df[~df["is_guest"]]
 rfm_raw = build_rfm(df_customers)
-max_k = min(len(SEGMENT_LABELS), len(rfm_raw) - 1)
+max_k = min(MAX_SEGMENTS, len(rfm_raw) - 1)
 
 if max_k < 2:
     st.warning(
@@ -84,14 +82,14 @@ else:
         distinct from other segments. **Local peaks** are often the best `k`.
 
         > **Tip:** Find where the elbow and silhouette peak agree. If they differ,
-        > favour the silhouette score. Consider interpretability: 3-4 segments are usually
-        > more actionable for the business than 6.
+        > favour the silhouette score. Remember that 3 or 4 segments are usually
+        > more actionable for a business than 6.
         """)
 
         k_vals, inertias, silhouettes = elbow_data(
             rfm_raw,
             winsorise_pct=winsorise_pct,
-            max_segments=len(SEGMENT_LABELS)
+            max_segments=MAX_SEGMENTS
         )
 
         c1, c2 = st.columns(2)
@@ -131,14 +129,13 @@ else:
             st.plotly_chart(fig_sil, width="stretch")
 
     rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise_pct=winsorise_pct)
-    rfm["Segment"] = assign_segment_labels(rfm)
+    rfm["Segment"], seg_colors, ordered_labels = assign_segment_labels(rfm)
 
     # Merge segment labels onto raw values; winsorized frame only served clustering.
-    active_labels = segment_labels_for_k(n_clusters)
     rfm_display = rfm_raw.merge(rfm[["Customer ID", "Segment"]], on="Customer ID")
     rfm_display["Segment"] = pd.Categorical(
         rfm_display["Segment"],
-        categories=[cat for cat in active_labels if cat in rfm_display["Segment"].values],
+        categories=[cat for cat in ordered_labels if cat in rfm_display["Segment"].values],
         ordered=True
     )
 
@@ -185,19 +182,51 @@ else:
         },
         hide_index=True)
 
-    # ── Scatter: Recency vs Monetary, coloured by segment ────
+    # ── Scatter: full width ────────────────────────────────────────────────
     st.space("small")
     section("Segment visualisation", eyebrow="Breakdown")
-    col_a, col_b = st.columns(2)
+    use_3d = st.toggle("3D view", value=False, key="scatter_3d")
 
-    with col_a:
+    if use_3d:
+        fig_scatter = px.scatter_3d(
+            rfm_display,
+            x="Recency",
+            y="Frequency",
+            z="Monetary",
+            color="Segment",
+            color_discrete_map=seg_colors,
+            category_orders={"Segment": ordered_labels},
+            hover_data=["Customer ID"],
+            title="RFM: Three Dimensional",
+            labels={
+                "Recency": "Days since last purchase",
+                "Frequency": "Orders",
+                "Monetary": "Total Spend",
+            },
+            opacity=0.7,
+        )
+        fig_scatter.update_traces(marker_size=2)
+        fig_scatter.update_layout(
+            scene=dict(
+                xaxis=dict(autorange="reversed"),
+                zaxis=dict(
+                    type="log",
+                    tickvals=[1, 10, 100, 1_000, 10_000, 100_000, 1_000_000],
+                    ticktext=["£1", "£10", "£100", "£1,000", "£10,000", "£100,000", "£1,000,000"],
+                ),
+            ),
+            height=700,
+            margin=dict(t=40, l=0, r=0, b=0),
+            legend=dict(orientation="h", y=-0.05),
+        )
+    else:
         fig_scatter = px.scatter(
             rfm_display,
             x="Recency",
             y="Monetary",
             color="Segment",
-            color_discrete_map=SEGMENT_COLORS,
-            category_orders={"Segment": list(segment_labels_for_k(n_clusters))},
+            color_discrete_map=seg_colors,
+            category_orders={"Segment": ordered_labels},
             hover_data=["Customer ID", "Frequency"],
             title="Recency vs monetary by segment",
             labels={"Recency": "Days since last purchase", "Monetary": "Total Spend (£)"},
@@ -210,8 +239,56 @@ else:
             ticktext=["£1", "£10", "£100", "£1,000", "£10,000", "£100,000", "£1,000,000"],
         )
         fig_scatter.update_traces(marker_size=4)
-        finalise_fig(fig_scatter)
-        st.plotly_chart(fig_scatter, width="stretch")
+
+    finalise_fig(fig_scatter)
+    st.plotly_chart(fig_scatter, width="stretch")
+
+    # ── Radar + Box: side by side ─────────────────────────────────────────
+    st.space("small")
+    col_a, col_b = st.columns(2)
+
+    with col_a:
+        radar_df = (
+            rfm_display.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
+            .mean()
+            .dropna()
+        )
+
+        radar_norm = radar_df.copy()
+        rec_max = radar_norm["Recency"].max()
+        radar_norm["Recency"] = 1 - (radar_norm["Recency"] / rec_max) if rec_max else radar_norm["Recency"]
+
+        for col in ["Frequency", "Monetary"]:
+            col_max = radar_norm[col].max()
+            radar_norm[col] = radar_norm[col] / col_max if col_max else radar_norm[col]
+
+        categories = ["Recency (inv.)", "Frequency", "Monetary"]
+        fig_radar = go.Figure()
+
+        for segment in radar_norm.index:
+            vals = radar_norm.loc[segment].tolist()
+            vals += vals[:1]
+
+            fig_radar.add_trace(go.Scatterpolar(
+                r=vals,
+                theta=categories + [categories[0]],
+                fill="toself",
+                name=str(segment),
+                line=dict(color=seg_colors.get(str(segment), CHART_COLORWAY[0]), width=2),
+                opacity=0.8,
+            ))
+
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 1], gridcolor=NEUTRAL_RADAR_GRID),
+                angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
+                bgcolor="rgba(253,253,248,0.55)",
+            ),
+            dragmode=False,
+            title="Normalised RFM profile per segment"
+        )
+        finalise_fig(fig_radar)
+        st.plotly_chart(fig_radar, width="stretch")
 
     with col_b:
         fig_box = px.box(
@@ -219,8 +296,8 @@ else:
             x="Segment",
             y="Monetary",
             color="Segment",
-            color_discrete_map=SEGMENT_COLORS,
-            category_orders={"Segment": list(segment_labels_for_k(n_clusters))},
+            color_discrete_map=seg_colors,
+            category_orders={"Segment": ordered_labels},
             title="Spend distribution by segment",
             labels={"Monetary": "Total Spend (£)"},
         )
@@ -232,50 +309,6 @@ else:
         )
         finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
-
-    # ── Radar chart: normalised RFM means per segment ─────────
-    st.space("small")
-    radar_df = (
-        rfm_display.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
-        .mean()
-        .dropna()
-    )
-
-    radar_norm = radar_df.copy()
-    rec_max = radar_norm["Recency"].max()
-    radar_norm["Recency"] = 1 - (radar_norm["Recency"] / rec_max) if rec_max else radar_norm["Recency"]
-
-    for col in ["Frequency", "Monetary"]:
-        col_max = radar_norm[col].max()
-        radar_norm[col] = radar_norm[col] / col_max if col_max else radar_norm[col]
-
-    categories = ["Recency (inv.)", "Frequency", "Monetary"]
-    fig_radar = go.Figure()
-
-    for segment in radar_norm.index:
-        vals = radar_norm.loc[segment].tolist()
-        vals += vals[:1]
-
-        fig_radar.add_trace(go.Scatterpolar(
-            r=vals,
-            theta=categories + [categories[0]],
-            fill="toself",
-            name=str(segment),
-            line=dict(color=SEGMENT_COLORS.get(str(segment), CHART_COLORWAY[0]), width=2),
-            opacity=0.8,
-        ))
-
-    fig_radar.update_layout(
-        polar=dict(
-            radialaxis=dict(visible=True, range=[0, 1], gridcolor=NEUTRAL_RADAR_GRID),
-            angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
-            bgcolor="rgba(253,253,248,0.55)",
-        ), 
-        dragmode=False,
-        title="Normalised RFM profile per segment"
-    )
-    finalise_fig(fig_radar)
-    st.plotly_chart(fig_radar, width="stretch")
 
     # ── Download ─────────
     st.space("small")

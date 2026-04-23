@@ -101,30 +101,24 @@ def finalise_fig(fig, *, unified_hover: bool = False, uirevision: str | None = N
     return fig
 
 
-SEGMENT_COLORS = {
-    "A":           "#B85F3D",
-    "B":     "#2E7D68",
-    "C": "#7A52B3",
-    "D":           "#2C78B7",
-    "E":      "#B6861E",
-    "F":             "#433D37"
-}
+MAX_SEGMENTS = 6
 
-SEGMENT_LABELS = [
-    "A",
-    "B",
-    "C",
-    "D",
-    "E",
-    "F"
+_SEGMENT_PALETTE = [
+    "#B85F3D",  # warm red-brown — best
+    "#2E7D68",  # teal
+    "#7A52B3",  # purple
+    "#2C78B7",  # blue
+    "#B6861E",  # gold
+    "#433D37",  # dark grey-brown — worst
 ]
 
 
-def segment_labels_for_k(k: int) -> list[str]:
-    """Return k evenly-spaced labels from SEGMENT_LABELS, best → worst."""
-    n = len(SEGMENT_LABELS)
-    indices = np.round(np.linspace(0, n - 1, k)).astype(int)
-    return [SEGMENT_LABELS[i] for i in indices]
+def _rfm_tier(score: float) -> str:
+    if score >= 0.6:
+        return "high"
+    if score >= 0.3:
+        return "mid"
+    return "low"
 
 
 def render_dataset_subtitle(df: pd.DataFrame) -> None:
@@ -489,6 +483,11 @@ def _retail_csv_line_filters(df):
 
 
 def assign_segment_labels(rfm):
+    """Rank clusters best→worst and return (segment_series, color_map, ordered_labels).
+
+    Descriptors are derived from each cluster's normalised R/F/M profile so they
+    convey meaning rather than arbitrary letters.
+    """
     stats = rfm.groupby("Cluster")[["Recency", "Frequency", "Monetary"]].mean()
     rng = (stats.max() - stats.min()).replace(0, 1)
     r_norm = (stats["Recency"] - stats["Recency"].min()) / rng["Recency"]
@@ -496,9 +495,32 @@ def assign_segment_labels(rfm):
     m_norm = (stats["Monetary"] - stats["Monetary"].min()) / rng["Monetary"]
     score = (1 - r_norm) + f_norm + m_norm
     ranked = score.sort_values(ascending=False).index
-    labels = segment_labels_for_k(len(ranked))
-    label_map = {cid: labels[rank] for rank, cid in enumerate(ranked)}
-    return rfm["Cluster"].map(label_map)
+
+    r_inv = 1 - r_norm  # 1 = very recent, 0 = dormant
+    _R = {"high": "Recent", "mid": "Active", "low": "Dormant"}
+    _M = {"high": "High spend", "mid": "Mid spend", "low": "Low spend"}
+    _F = {"high": "Frequent", "mid": "Regular", "low": "Infrequent"}
+
+    # 2-part labels: Monetary · Recency
+    label_list = [
+        f"{_M[_rfm_tier(float(m_norm[cid]))]}, {_R[_rfm_tier(float(r_inv[cid]))]}"
+        for cid in ranked
+    ]
+
+    # Add frequency if any 2-part labels collide
+    if len(set(label_list)) < len(label_list):
+        label_list = [
+            f"{_M[_rfm_tier(float(m_norm[cid]))]}, {_R[_rfm_tier(float(r_inv[cid]))]}, {_F[_rfm_tier(float(f_norm[cid]))]}"
+            for cid in ranked
+        ]
+
+    # Last resort: append rank index
+    if len(set(label_list)) < len(label_list):
+        label_list = [f"{lbl} ({i + 1})" for i, lbl in enumerate(label_list)]
+
+    label_map = dict(zip(ranked, label_list))
+    color_map = {lbl: _SEGMENT_PALETTE[i % len(_SEGMENT_PALETTE)] for i, lbl in enumerate(label_list)}
+    return rfm["Cluster"].map(label_map), color_map, label_list
 
 
 @st.cache_data(max_entries=1)
@@ -648,7 +670,7 @@ def elbow_data(rfm_raw, winsorise_pct=99, max_segments=6):
 
     _, X = transform_rfm(rfm)
 
-    max_k = min(len(SEGMENT_LABELS), len(rfm) - 1)
+    max_k = min(MAX_SEGMENTS, len(rfm) - 1)
     if max_k < 2:
         return [], [], []
 

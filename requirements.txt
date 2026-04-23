@@ -1,7 +1,0 @@
-streamlit>=1.56.0
-pandas>=3.0.0
-plotly>=5.20.0
-scikit-learn>=1.4.0
-statsmodels>=0.14.0
-pymc-marketing>=0.19.3
-nutpie>=0.1.0
