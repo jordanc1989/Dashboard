@@ -200,7 +200,7 @@ else:
             labels={"Monetary": "Total Spend (£)"},
             opacity=0.65,
         )
-        fig_scatter.update_yaxes(tickprefix="£", tickformat=",")
+        fig_scatter.update_yaxes(type="log", tickprefix="£", tickformat=",")
         finalise_fig(fig_scatter)
         st.plotly_chart(fig_scatter, width="stretch")
 
@@ -216,7 +216,7 @@ else:
             labels={"Monetary": "Total Spend (£)"},
         )
         fig_box.update_layout(showlegend=False, dragmode=False)
-        fig_box.update_yaxes(tickprefix="£", tickformat=",")
+        fig_box.update_yaxes(type="log", tickprefix="£", tickformat=",")
         finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
 
@@ -257,9 +257,9 @@ else:
             radialaxis=dict(visible=True, range=[0, 1], gridcolor=NEUTRAL_RADAR_GRID),
             angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
             bgcolor="rgba(253,253,248,0.55)",
-            dragmode=False
-        ),
-        title="Normalised RFM profile per segment",
+        ), 
+        dragmode=False,
+        title="Normalised RFM profile per segment"
     )
     finalise_fig(fig_radar)
     st.plotly_chart(fig_radar, width="stretch")
