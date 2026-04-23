@@ -212,7 +212,7 @@ else:
             title="Spend distribution by segment",
             labels={"Monetary": "Total Spend (£)"},
         )
-        fig_box.update_layout(showlegend=False)
+        fig_box.update_layout(showlegend=False, modebar_remove=['pan2d'])
         fig_box.update_yaxes(tickprefix="£", tickformat=",")
         finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")

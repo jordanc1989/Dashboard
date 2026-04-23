@@ -138,7 +138,7 @@ with col_right:
         orientation="h", title="Top 10 products by revenue",
         color_discrete_sequence=[ACCENT_ORANGE],
     )
-    fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"))
+    fig_prod.update_layout(yaxis=dict(categoryorder="total ascending"), dragmode=False)
     fig_prod.update_xaxes(tickprefix="£", tickformat=",")
     finalise_fig(fig_prod)
     st.plotly_chart(fig_prod, width='stretch')

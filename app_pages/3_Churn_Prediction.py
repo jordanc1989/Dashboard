@@ -334,6 +334,7 @@ with left:
     fig_imp.update_layout(
         yaxis=dict(categoryorder="total ascending"),
         xaxis_title="Importance",
+        dragmode=False,
     )
     finalise_fig(fig_imp)
     st.plotly_chart(fig_imp, width="stretch")
@@ -402,6 +403,7 @@ with right:
             x=0.5,
         ),
         height=380,
+        dragmode=False,
     )
     finalise_fig(fig_roc)
     st.caption(
@@ -422,6 +424,7 @@ fig_cm = px.imshow(
     title=f"Confusion Matrix @ threshold {threshold:.2f} (held-out 20%)",
     aspect="equal",
 )
+fig_cm.update_layout(dragmode=False)
 fig_cm.update_coloraxes(showscale=False)
 fig_cm.update_xaxes(side="bottom")
 finalise_fig(fig_cm)
