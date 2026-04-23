@@ -56,7 +56,7 @@ def _render_glance(df: pd.DataFrame) -> None:
 
 
 def _render_module_cards() -> None:
-    """Module grid — each card: icon + eyebrow + title + description + open link."""
+    """Module grid - each card: icon + eyebrow + title + description + open link."""
     for row_start in range(0, len(PAGE_CARDS), 2):
         cols = st.columns(2, gap="medium")
         for col, offset in zip(cols, (0, 1)):

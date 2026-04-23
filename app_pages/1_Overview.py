@@ -90,7 +90,7 @@ with st.container(horizontal=True):
 
 st.space("small")
 
-# ── Monthly revenue — area chart with spline smoothing ────────
+# ── Monthly revenue area chart with smoothing ────────
 section("Revenue trend", eyebrow="Monthly")
 monthly_revenue = df.groupby("Month")["Revenue"].sum().reset_index()
 fig_line = go.Figure(go.Scatter(
@@ -123,7 +123,7 @@ with col_left:
         orientation="h", title="Top 10 countries by revenue",
         color_discrete_sequence=[ACCENT_ORANGE],
     )
-    fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"))
+    fig_bar.update_layout(yaxis=dict(categoryorder="total ascending"), dragmode=False)
     fig_bar.update_xaxes(tickprefix="£", tickformat=",")
     finalise_fig(fig_bar)
     st.plotly_chart(fig_bar, width='stretch')

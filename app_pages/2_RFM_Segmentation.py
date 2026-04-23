@@ -212,7 +212,7 @@ else:
             title="Spend distribution by segment",
             labels={"Monetary": "Total Spend (£)"},
         )
-        fig_box.update_layout(showlegend=False, modebar_remove=['pan2d'])
+        fig_box.update_layout(showlegend=False, dragmode=False)
         fig_box.update_yaxes(tickprefix="£", tickformat=",")
         finalise_fig(fig_box)
         st.plotly_chart(fig_box, width="stretch")
@@ -254,6 +254,7 @@ else:
             radialaxis=dict(visible=True, range=[0, 1], gridcolor=NEUTRAL_RADAR_GRID),
             angularaxis=dict(gridcolor=NEUTRAL_RADAR_GRID),
             bgcolor="rgba(253,253,248,0.55)",
+            dragmode=False
         ),
         title="Normalised RFM profile per segment",
     )

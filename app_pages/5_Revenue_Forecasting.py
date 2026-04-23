@@ -355,12 +355,12 @@ with st.container(horizontal=True):
     st.metric("Observations", f"{len(series):,}", border=True)
     st.metric(
         "Holdout MAPE",
-        f"{backtest_mape:.1f}%" if backtest_mape is not None else "—",
+        f"{backtest_mape:.1f}%" if backtest_mape is not None else "-",
         border=True,
     )
     st.metric(
         "Holdout RMSE",
-        f"£{backtest_rmse:,.0f}" if backtest_rmse is not None else "—",
+        f"£{backtest_rmse:,.0f}" if backtest_rmse is not None else "-",
         border=True,
     )
     st.metric(
@@ -416,7 +416,7 @@ fig.add_trace(go.Scatter(
 ))
 
 fig.update_layout(
-    title=f"{freq_label} Revenue — {model_name} Forecast",
+    title=f"{freq_label} Revenue - {model_name} Forecast",
     yaxis=dict(
         title="Revenue (£)",
         tickprefix="£",

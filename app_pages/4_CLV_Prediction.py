@@ -41,9 +41,9 @@ with st.expander("How the models work", icon=":material/help_outline:"):
 **BG/NBD model** assumes each customer has an unobserved purchase rate (Poisson) and dropout
 probability (Geometric). It takes three inputs per customer:
 
-- **Frequency** — number of repeat purchases (total orders minus the first)
-- **Recency** — weeks from first to last purchase (displayed as "weeks since last purchase" via T - recency)
-- **T** — total weeks since their first purchase (customer age)
+- **Frequency**: number of repeat purchases (total orders minus the first)
+- **Recency**: weeks from first to last purchase (displayed as "weeks since last purchase" via T - recency)
+- **T**: total weeks since their first purchase (customer age)
 
 It outputs expected future transactions (over a chosen time window), and the probability the
 customer is still active (i.e. "alive").
@@ -112,7 +112,7 @@ with st.container(border=True):
 monthly_discount = (1 + annual_rate) ** (1 / 12) - 1
 
 if use_mcmc and not st.session_state.get("_mcmc_toast_shown"):
-    st.toast("MCMC mode enabled — first run takes ~1-2 minutes. Results are cached once fitted.")
+    st.toast("MCMC mode enabled, first run takes ~1-2 minutes. Results are cached once fitted.")
     st.session_state["_mcmc_toast_shown"] = True
 if not use_mcmc:
     st.session_state["_mcmc_toast_shown"] = False
@@ -179,7 +179,7 @@ def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
 
 
 spinner_msg = (
-    "Fitting BG/NBD and Gamma-Gamma models via MCMC — this may take 1-2 minutes…"
+    "Fitting BG/NBD and Gamma-Gamma models via MCMC, this may take 1-2 minutes…"
     if fit_method == "mcmc" else
     "Fitting BG/NBD and Gamma-Gamma models (MAP)…"
 )
@@ -197,7 +197,7 @@ if abs(fm_corr) > 0.3:
     )
 else:
     st.caption(
-        f"OK — Gamma-Gamma independence assumption holds "
+        f"Correlation check OK. Gamma-Gamma independence assumption holds "
         f"(frequency-monetary correlation = {fm_corr:+.2f}, |r| < 0.3)."
     )
 
@@ -219,7 +219,7 @@ expected_aov = (
     ggm.expected_customer_spend(data=gg_data)
     .mean(("chain", "draw"))
     .to_series()
-    .set_axis(gg_data["customer_id"].values)   # gg_data is a subset — freq > 0 only
+    .set_axis(gg_data["customer_id"].values)   # gg_data is a subset: freq > 0 only
 )
 
 # GammaGamma CLV is only defined for repeat buyers with positive spend.
@@ -266,7 +266,7 @@ st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
 total_clv = summary["clv"].sum()
-median_clv = clv.median()  # median over modelled customers only; summary includes zero-filled one-time buyers
+median_clv = clv.median()  # median over modelled customers only. Summary includes zero-filled one-time buyers
 
 with st.container(horizontal=True):
     st.metric("Customers modelled", f"{len(summary):,}", border=True)
@@ -532,7 +532,7 @@ section("Model diagnostics", eyebrow="Frequency x recency surfaces")
 col_d1, col_d2 = st.columns(2)
 
 with col_d1:
-    st.markdown("**Frequency-Recency matrix** — expected purchases in the next period")
+    st.markdown("**Frequency-Recency matrix** - expected purchases in the next period")
     st.markdown(
         "Frequent buyers who purchased recently (bottom-left) are predicted to buy most. "
         "Frequent buyers who haven't purchased in a long time (bottom-right) "
@@ -583,6 +583,7 @@ with col_d1:
         "Scale: lighter = fewer expected purchases in the horizon; darker blue = more "
         "(brand-aligned sequential scale)."
     )
+    fig_fr.update_layout(dragmode=False)
     finalise_fig(fig_fr)
     st.plotly_chart(fig_fr, width="stretch")
 
@@ -591,7 +592,7 @@ with col_d2:
     st.markdown(
         "Customers who purchased recently (left) are most likely still active. "
         "High-frequency customers who haven't purchased in a long time (bottom-right) "
-        "are the most churned — the model should be certain they've dropped off."
+        "are the most churned - the model should be certain they've dropped off."
     )
 
     with warnings.catch_warnings():
@@ -617,8 +618,9 @@ with col_d2:
     fig_alive.update_coloraxes(colorbar=dict(thickness=12, len=0.8))
     st.caption(
         "Scale: brown = lower P(active); neutral mid-tone; green = higher P(active). "
-        "Same frequency × recency grid as the chart on the left."
+        "Same frequency x recency grid as the chart on the left."
     )
+    fig_alive.update_layout(dragmode=False)
     finalise_fig(fig_alive)
     st.plotly_chart(fig_alive, width="stretch")
 
@@ -676,7 +678,8 @@ with col_h2:
             title="CLV concentration (Lorenz curve)",
         xaxis_title="Cumulative % of customers (low → high CLV)",
         yaxis_title="Cumulative % of total CLV",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02),
+        legend=dict(orientation="v", x=0.02, y=0.95, xanchor="left", yanchor="top"),
+        dragmode=False
     )
     finalise_fig(fig_lorenz, unified_hover=True)
     st.plotly_chart(fig_lorenz, width="stretch")
