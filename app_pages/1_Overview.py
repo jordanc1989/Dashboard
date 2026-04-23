@@ -8,7 +8,6 @@ from utils import (
     load_raw_count,
     apply_sidebar_filters,
     render_page_header,
-    render_page_footer,
     render_dq_grid,
     section,
     finalise_fig,
@@ -156,5 +155,3 @@ with st.expander("View raw data sample", icon=":material/table_view:"):
             "InvoiceDate": st.column_config.DatetimeColumn(format="YYYY-MM-DD HH:mm"),
         },
     )
-
-render_page_footer(df, note="Exploration · headline KPIs")

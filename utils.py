@@ -23,7 +23,7 @@ PRIMARY_ACCENT = "#ff8e32"
 # Match `.streamlit/config.toml` [theme] font for Plotly chart chrome (code uses theme codeFont)
 UI_FONT_FAMILY = "Outfit"
 
-# Brand-aligned sequential scales for heatmaps (avoid default Blues / RdYlGn only)
+# Brand-aligned sequential scales for heatmaps
 COLOR_SCALE_EXPECTED_PURCHASES = [
     "#f5f4ef",
     "#c5dde8",
@@ -85,7 +85,7 @@ pio.templates["portfolio"] = go.layout.Template(
 )
 pio.templates.default = "plotly+portfolio"
 
-# Warm neutrals for reference lines and grid chrome (matches theme, not cool Tailwind grays)
+# Warm neutrals for reference lines and grid chrome
 NEUTRAL_GRID = "#b8ae98"
 NEUTRAL_RADAR_GRID = "#dcd5c2"
 
@@ -137,7 +137,7 @@ def render_dataset_subtitle(df: pd.DataFrame) -> None:
 
 # ── Page chrome & shared layout helpers ─────────────────────────────────────
 # Palette + typography already live in .streamlit/config.toml. These helpers
-# add visual hierarchy on top of the native theme.
+# add visual hierarchy on top.
 
 _PAGE_CHROME_CSS = """
 <style>
@@ -153,7 +153,6 @@ summary {
 [data-testid="stMetricDelta"],
 [data-testid="stDataFrame"],
 .page-header-meta,
-.page-footer-block,
 .dq-grid dd {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1, "lnum" 1;

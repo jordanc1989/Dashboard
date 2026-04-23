@@ -15,7 +15,6 @@ from utils import (
     apply_sidebar_filters,
     build_clv_summary,
     render_page_header,
-    render_page_footer,
     section,
     finalise_fig,
 )
@@ -43,7 +42,7 @@ with st.expander("How the models work", icon=":material/help_outline:"):
 probability (Geometric). It takes three inputs per customer:
 
 - **Frequency** — number of repeat purchases (total orders minus the first)
-- **Recency** — weeks since their last purchase
+- **Recency** — weeks from first to last purchase (displayed as "weeks since last purchase" via T - recency)
 - **T** — total weeks since their first purchase (customer age)
 
 It outputs expected future transactions (over a chosen time window), and the probability the
@@ -91,7 +90,7 @@ with st.container(border=True):
             low_memory_mode = st.toggle(
                 "Low-memory mode",
                 value=True,
-                help="Reduces peak memory by fitting CLV on a capped customer set. Recommended for Streamlit Community Cloud.",
+                help="Reduces peak memory by fitting CLV on a capped customer set. Recommended for Streamlit Cloud.",
             )
         with col_ctrl4:
             use_mcmc = st.toggle(
@@ -528,7 +527,7 @@ with st.expander(
 
 # ── Model diagnostics ──────────────────────────────────────────────────────────
 st.space("small")
-section("Model diagnostics", eyebrow="Frequency × recency surfaces")
+section("Model diagnostics", eyebrow="Frequency x recency surfaces")
 
 col_d1, col_d2 = st.columns(2)
 
@@ -750,5 +749,3 @@ st.download_button(
     mime="text/csv",
     icon=":material/download:",
 )
-
-render_page_footer(df, note="Lifetime value · BG/NBD + Gamma-Gamma")

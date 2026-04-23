@@ -13,7 +13,6 @@ from utils import (
     build_revenue_series,
     load_data,
     render_page_header,
-    render_page_footer,
     section,
     finalise_fig,
 )
@@ -128,7 +127,7 @@ with st.expander(
             "Shock absorption",
             min_value=0, max_value=5, value=1,
             help="How quickly the model 'forgets' a surprise spike or dip. "
-                 "1 absorbs last period's shock, higher values remember shocks forlonger."
+                 "1 absorbs last period's shock, higher values remember shocks for longer."
         )
 
         cc4, cc6, cc7 = st.columns(3)
@@ -504,5 +503,3 @@ st.caption(
     "identifiable but rests on only ~2 full cycles. Forecasts more than a "
     "season ahead should be treated as indicative."
 )
-
-render_page_footer(df, note="Forecasting · SARIMA & Theta")

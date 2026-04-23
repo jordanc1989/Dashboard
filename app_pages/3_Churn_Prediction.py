@@ -28,7 +28,6 @@ from utils import (
     build_churn_dataset,
     load_data,
     render_page_header,
-    render_page_footer,
     section,
     finalise_fig,
 )
@@ -416,8 +415,8 @@ cm = confusion_matrix(test_metrics["y_test"], y_pred_test, labels=[0, 1])
 cm_labels = ["Retained", "Churned"]
 fig_cm = px.imshow(
     cm,
-    x=[f"Pred: {l}" for l in cm_labels],
-    y=[f"Actual: {l}" for l in cm_labels],
+    x=[f"Pred: {label}" for label in cm_labels],
+    y=[f"Actual: {label}" for label in cm_labels],
     color_continuous_scale=COLOR_SCALE_EXPECTED_PURCHASES,
     text_auto=True,
     title=f"Confusion Matrix @ threshold {threshold:.2f} (held-out 20%)",
@@ -515,5 +514,3 @@ st.caption(
     "not an unseen future. For production use you would retrain on the full "
     "history and score current customers using today as the cutoff."
 )
-
-render_page_footer(df, note="Classification · random forest, time-split labels")

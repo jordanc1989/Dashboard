@@ -15,7 +15,6 @@ from utils import (
     SEGMENT_COLORS,
     SEGMENT_LABELS,
     render_page_header,
-    render_page_footer,
     section,
     NEUTRAL_RADAR_GRID,
     finalise_fig,
@@ -77,7 +76,7 @@ else:
         Look for the "elbow", the point where the curve bends and the drop 
         starts to flatten out. Adding more clusters beyond this point gives diminishing returns.
 
-        **Silhouette Score:** measures how well separated the clusters are (on a scale of 0 to 1).
+        **Silhouette Score:** measures how well separated the clusters are (on a scale of −1 to 1).
         A higher score means customers within a segment are more similar to each other & more
         distinct from other segments. **Local peaks** are often the best `k`.
 
@@ -133,7 +132,7 @@ else:
     active_labels = segment_labels_for_k(n_clusters)
     rfm["Segment"] = pd.Categorical(
         rfm["Segment"],
-        categories=[l for l in active_labels if l in rfm["Segment"].values],
+        categories=[cat for cat in active_labels if cat in rfm["Segment"].values],
         ordered=True
     )
 
@@ -141,7 +140,7 @@ else:
     sil_slot.metric(
         "Silhouette score",
         sil_str,
-        help="Measures how well-separated the clusters are (0–1). Higher is better.",
+        help="Measures how well-separated the clusters are (−1 to 1). Higher is better.",
     )
 
     # ── Segment summary table ───────────────────────────────────────────
@@ -275,5 +274,3 @@ else:
         mime="text/csv",
         icon=":material/download:",
     )
-
-render_page_footer(df, note="Segmentation · K-means on Box-Cox RFM")
