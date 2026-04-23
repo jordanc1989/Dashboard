@@ -24,22 +24,27 @@ The app includes:
 
 ## Setup
 
-### 1) Create and activate a virtual environment (recommended)
+### 1) Install dependencies
+
+Recommended (uses the lock file for reproducible installs):
+
+```bash
+uv sync
+```
+
+Or with a standard virtual environment:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-### 2) Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 3) Run the app
+### 2) Run the app
 
 ```bash
+uv run streamlit run app.py
+# or, if using a venv:
 streamlit run app.py
 ```
 
@@ -56,6 +61,10 @@ streamlit run app.py
 │   └── 5_Revenue_Forecasting.py
 ├── utils.py
 ├── requirements.txt
+├── static/
+├── .streamlit/
+│   ├── config.toml
+│   └── pages.toml
 └── data/
     └── online_retail_II.csv
 ```
