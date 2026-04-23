@@ -55,11 +55,14 @@ else:
                 label_visibility='visible'
             )
         with ctrl_cols[1]:
-            winsorise = st.toggle(
-                "Winsorise outliers",
-                value=True,
-                help="Clip Recency / Frequency / Monetary at the 1st and 99th "
-                "percentiles before fitting. Reduces the influence of extreme outliers.",
+            winsorise_pct = st.slider(
+                "Winsorise percentile",
+                min_value=95,
+                max_value=100,
+                value=99,
+                step=1,
+                help="Clip Recency / Frequency / Monetary at this percentile (and its "
+                "mirror) before fitting. Set to 100 to disable winsorisation entirely.",
             )
         sil_slot = ctrl_cols[2].empty()
 
@@ -87,7 +90,7 @@ else:
 
         k_vals, inertias, silhouettes = elbow_data(
             rfm_raw,
-            winsorise=winsorise,
+            winsorise_pct=winsorise_pct,
             max_segments=len(SEGMENT_LABELS)
         )
 
@@ -127,7 +130,7 @@ else:
             finalise_fig(fig_sil)
             st.plotly_chart(fig_sil, width="stretch")
 
-    rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
+    rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise_pct=winsorise_pct)
     rfm["Segment"] = assign_segment_labels(rfm)
 
     # Merge segment labels onto raw values; winsorized frame only served clustering.
@@ -182,7 +185,7 @@ else:
         },
         hide_index=True)
 
-    # ── Scatter: Frequency vs Monetary, coloured by segment ────
+    # ── Scatter: Recency vs Monetary, coloured by segment ────
     st.space("small")
     section("Segment visualisation", eyebrow="Breakdown")
     col_a, col_b = st.columns(2)
@@ -190,16 +193,17 @@ else:
     with col_a:
         fig_scatter = px.scatter(
             rfm_display,
-            x="Frequency",
+            x="Recency",
             y="Monetary",
             color="Segment",
             color_discrete_map=SEGMENT_COLORS,
             category_orders={"Segment": list(segment_labels_for_k(n_clusters))},
-            hover_data=["Customer ID", "Recency"],
-            title="Frequency vs monetary by segment",
-            labels={"Monetary": "Total Spend (£)"},
+            hover_data=["Customer ID", "Frequency"],
+            title="Recency vs monetary by segment",
+            labels={"Recency": "Days since last purchase", "Monetary": "Total Spend (£)"},
             opacity=0.65,
         )
+        fig_scatter.update_xaxes(autorange="reversed")
         fig_scatter.update_yaxes(
             type="log",
             tickvals=[1, 10, 100, 1_000, 10_000, 100_000, 1_000_000],

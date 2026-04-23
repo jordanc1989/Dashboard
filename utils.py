@@ -102,21 +102,21 @@ def finalise_fig(fig, *, unified_hover: bool = False, uirevision: str | None = N
 
 
 SEGMENT_COLORS = {
-    "Champions":           "#B85F3D",
-    "Loyal Customers":     "#2E7D68",
-    "Potential Loyalists": "#7A52B3",
-    "Promising":           "#2C78B7",
-    "Need Attention":      "#B6861E",
-    "At Risk":             "#433D37"
+    "A":           "#B85F3D",
+    "B":     "#2E7D68",
+    "C": "#7A52B3",
+    "D":           "#2C78B7",
+    "E":      "#B6861E",
+    "F":             "#433D37"
 }
 
 SEGMENT_LABELS = [
-    "Champions",
-    "Loyal Customers",
-    "Potential Loyalists",
-    "Promising",
-    "Need Attention",
-    "At Risk"
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F"
 ]
 
 
@@ -624,13 +624,12 @@ def transform_rfm(rfm):
 
 
 @st.cache_data(max_entries=16)
-def run_clustering(rfm_raw, n_clusters, winsorise=True):
+def run_clustering(rfm_raw, n_clusters, winsorise_pct=99):
     rfm = rfm_raw.copy()
-    if winsorise:
+    if winsorise_pct < 100:
+        q = winsorise_pct / 100
         for col in ["Recency", "Frequency", "Monetary"]:
-            upper = rfm[col].quantile(0.99)
-            lower = rfm[col].quantile(0.01)
-            rfm[col] = rfm[col].clip(lower=lower, upper=upper)
+            rfm[col] = rfm[col].clip(lower=rfm[col].quantile(1 - q), upper=rfm[col].quantile(q))
     rfm, X = transform_rfm(rfm)
     km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, random_state=10)
     rfm["Cluster"] = km.fit_predict(X)
@@ -639,14 +638,13 @@ def run_clustering(rfm_raw, n_clusters, winsorise=True):
 
 
 @st.cache_data(max_entries=16)
-def elbow_data(rfm_raw, winsorise=True, max_segments=6):
+def elbow_data(rfm_raw, winsorise_pct=99, max_segments=6):
     rfm = rfm_raw.copy()
 
-    if winsorise:
+    if winsorise_pct < 100:
+        q = winsorise_pct / 100
         for col in ["Recency", "Frequency", "Monetary"]:
-            lower = rfm[col].quantile(0.01)
-            upper = rfm[col].quantile(0.99)
-            rfm[col] = rfm[col].clip(lower=lower, upper=upper)
+            rfm[col] = rfm[col].clip(lower=rfm[col].quantile(1 - q), upper=rfm[col].quantile(q))
 
     _, X = transform_rfm(rfm)
 
