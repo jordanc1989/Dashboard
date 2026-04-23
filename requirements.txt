@@ -5,4 +5,3 @@ scikit-learn>=1.4.0
 statsmodels>=0.14.0
 pymc-marketing>=0.19.3
 nutpie>=0.1.0
-pytensor>=2.22.0

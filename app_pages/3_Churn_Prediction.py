@@ -13,10 +13,10 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+import numpy as np
 from sklearn.model_selection import (
     StratifiedKFold,
     cross_val_predict,
-    cross_val_score,
     train_test_split,
 )
 
@@ -58,7 +58,7 @@ standard workaround for non-contractual retail is a **rolling-window definition*
 
 This gives a ground truth from the data itself. The model is
 then trained and evaluated on an 80 / 20 stratified split of this labelled set,
-and out-of-fold probabilities are generated for every customer via 5-fold
+and out-of-fold probabilities are generated for every customer via 3-fold
 cross-validation for the at-risk table below.
         """
     )
@@ -117,8 +117,8 @@ with st.expander(
         n_estimators = st.slider(
             "Number of trees",
             min_value=50,
-            max_value=300,
-            value=200,
+            max_value=200,
+            value=100,
             step=50,
             help="More trees gives smoother probabilities but slower fit.",
         )
@@ -126,8 +126,8 @@ with st.expander(
         max_depth = st.slider(
             "Max tree depth",
             min_value=1,
-            max_value=15,
-            value=10,
+            max_value=10,
+            value=6,
             help=(
                 "Limits how deep each tree grows. Higher values allow more complex splits "
                 "(risk overfitting on small samples). 5-15 is often a good range for retail churn."
@@ -166,12 +166,12 @@ feature_cols = [
     "unique_products",
     "return_rate",
 ]
-X = features[feature_cols].values
+X = features[feature_cols].values.astype("float32")
 y = features["churned"].values
 
 
 # ── Train / evaluate ─────────────────────────
-@st.cache_resource(show_spinner="Training random forest...")
+@st.cache_resource(max_entries=1, show_spinner="Training random forest...")
 def fit_and_score(
     X,
     y,
@@ -182,7 +182,7 @@ def fit_and_score(
     max_depth: int,
     min_samples_split: int,
 ):
-    """Returns (test_metrics_dict, oof_probs, feat_importances, fitted_model)."""
+    """Returns (test_metrics_dict, oof_probs, feat_importances)."""
     rf_kwargs = dict(
         n_estimators=n_estimators,
         max_depth=max_depth,
@@ -206,15 +206,14 @@ def fit_and_score(
     test_proba = model.predict_proba(X_te)[:, 1]
     test_auc = roc_auc_score(y_te, test_proba)
 
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=10)
-    fold_aucs = cross_val_score(
-        RandomForestClassifier(**rf_kwargs),
-        X,
-        y,
-        cv=cv,
-        scoring="roc_auc",
-        n_jobs=-1,
-    )
+    # 3-fold OOF: generates probabilities and fold AUCs in one pass (no extra cv_score call)
+    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=10)
+    oof = cross_val_predict(
+        RandomForestClassifier(**rf_kwargs), X, y, cv=cv, method="predict_proba", n_jobs=-1
+    )[:, 1]
+    fold_aucs = np.array([roc_auc_score(y[te], oof[te]) for _, te in cv.split(X, y)])
+
+    importances = pd.Series(model.feature_importances_, index=feature_cols).sort_values()
 
     test_metrics = {
         "auc": test_auc,
@@ -224,16 +223,10 @@ def fit_and_score(
         "proba_test": test_proba,
     }
 
-    oof = cross_val_predict(
-        RandomForestClassifier(**rf_kwargs), X, y, cv=cv, method="predict_proba", n_jobs=-1
-    )[:, 1]
-
-    importances = pd.Series(model.feature_importances_, index=feature_cols).sort_values()
-
-    return test_metrics, oof, importances, model
+    return test_metrics, oof, importances
 
 
-test_metrics, oof_probs, importances, _ = fit_and_score(
+test_metrics, oof_probs, importances = fit_and_score(
     X,
     y,
     int(n_estimators),

@@ -1,4 +1,3 @@
-import pytensor
 import pandas as pd
 import streamlit as st
 
@@ -10,8 +9,6 @@ from utils import (
     render_page_footer,
     section,
 )
-
-pytensor.config.cxx = ""  # Disables C compilation entirely - to fix current MacOS bug until Pytensor is updated
 
 st.set_page_config(
     page_title="Customer analytics dashboard",

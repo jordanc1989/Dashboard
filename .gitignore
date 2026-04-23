@@ -5,3 +5,7 @@ __pycache__/
 .vscode/
 .agents/
 .claude/
+claude.md
+.python-version
+pyproject.toml
+uv.lock

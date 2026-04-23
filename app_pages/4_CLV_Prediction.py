@@ -267,7 +267,7 @@ st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
 total_clv = summary["clv"].sum()
-median_clv = summary["clv"].median()
+median_clv = clv.median()  # median over modelled customers only; summary includes zero-filled one-time buyers
 
 with st.container(horizontal=True):
     st.metric("Customers modelled", f"{len(summary):,}", border=True)
