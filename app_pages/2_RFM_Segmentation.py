@@ -129,10 +129,13 @@ else:
 
     rfm, sil = run_clustering(rfm_raw, n_clusters, winsorise=winsorise)
     rfm["Segment"] = assign_segment_labels(rfm)
+
+    # Merge segment labels onto raw values; winsorized frame only served clustering.
     active_labels = segment_labels_for_k(n_clusters)
-    rfm["Segment"] = pd.Categorical(
-        rfm["Segment"],
-        categories=[cat for cat in active_labels if cat in rfm["Segment"].values],
+    rfm_display = rfm_raw.merge(rfm[["Customer ID", "Segment"]], on="Customer ID")
+    rfm_display["Segment"] = pd.Categorical(
+        rfm_display["Segment"],
+        categories=[cat for cat in active_labels if cat in rfm_display["Segment"].values],
         ordered=True
     )
 
@@ -147,7 +150,7 @@ else:
     st.space("small")
     section("Segment profiles", eyebrow="Customer mix")
     segment_summary = (
-        rfm.groupby("Segment", observed=False)
+        rfm_display.groupby("Segment", observed=False)
         .agg(
             Customers=("Customer ID", "count"),
             Avg_Recency=("Recency", "mean"),
@@ -186,7 +189,7 @@ else:
 
     with col_a:
         fig_scatter = px.scatter(
-            rfm,
+            rfm_display,
             x="Frequency",
             y="Monetary",
             color="Segment",
@@ -203,7 +206,7 @@ else:
 
     with col_b:
         fig_box = px.box(
-            rfm,
+            rfm_display,
             x="Segment",
             y="Monetary",
             color="Segment",
@@ -220,7 +223,7 @@ else:
     # ── Radar chart: normalised RFM means per segment ─────────
     st.space("small")
     radar_df = (
-        rfm.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
+        rfm_display.groupby("Segment", observed=False)[["Recency", "Frequency", "Monetary"]]
         .mean()
         .dropna()
     )
@@ -264,7 +267,7 @@ else:
     # ── Download ─────────
     st.space("small")
     section("Export", eyebrow="Download results")
-    csv = rfm[
+    csv = rfm_display[
         ["Customer ID", "Recency", "Frequency", "Monetary", "Segment"]
     ].to_csv(index=False)
 

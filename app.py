@@ -11,7 +11,7 @@ from utils import (
 
 st.set_page_config(
     page_title="Customer analytics dashboard",
-    page_icon="static/jordan_cheney_logo_new.png",
+    page_icon="static/jordan_cheney_logo_dark.png",
     layout="wide"
 )
 
@@ -34,7 +34,7 @@ def _render_hero(df: pd.DataFrame) -> None:
     st.title("Customer analytics dashboard", anchor=False)
     st.html(
         '<p class="page-hero-tagline">'
-        'Interactive modules for exploring a two-year UK-based online retail '
+        'Interactive modules for exploring a two-year UK-based publicly available online retail '
         'dataset, from headline revenue KPIs to probabilistic CLV and time-series revenue forecasts.'
         '</p>'
     )
@@ -94,7 +94,7 @@ def home_page():
 
     section("Analyses", eyebrow="Jump to a module")
     st.caption(
-        "Each module has its own controls and works off the same sidebar filters."
+        "Each module has its own controls & works off the same sidebar filters."
     )
     _render_module_cards()
 
