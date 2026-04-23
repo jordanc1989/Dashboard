@@ -6,8 +6,7 @@ from utils import (
     apply_sidebar_filters,
     inject_page_chrome,
     load_data,
-    render_page_footer,
-    section,
+    section
 )
 
 st.set_page_config(
@@ -98,8 +97,6 @@ def home_page():
         "Each module has its own controls and works off the same sidebar filters."
     )
     _render_module_cards()
-
-    render_page_footer(df, note="Customer analytics · home")
 
 
 navigation = st.navigation(

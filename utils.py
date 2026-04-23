@@ -130,8 +130,8 @@ def segment_labels_for_k(k: int) -> list[str]:
 def render_dataset_subtitle(df: pd.DataFrame) -> None:
     """Standard date-range line under page titles (matches Streamlit body tone)."""
     st.caption(
-        f"UCI Online Retail Dataset · "
-        f"{df['InvoiceDate'].min():%b %Y} – {df['InvoiceDate'].max():%b %Y}"
+        f"UCI Online Retail Dataset: "
+        f"{df['InvoiceDate'].min():%b %Y} - {df['InvoiceDate'].max():%b %Y}"
     )
 
 
@@ -295,23 +295,6 @@ section[data-testid="stSidebar"] .sidebar-eyebrow {
     margin: 0.25rem 0 0.45rem 0;
 }
 
-/* Page footer — small editorial colophon anchoring the bottom of each page. */
-div.page-footer-block {
-    margin: 2.25rem 0 0.5rem 0;
-    padding-top: 0.85rem;
-    border-top: 1px solid #e8e2d2;
-    color: #8a7f66;
-    font-size: 0.78rem;
-    letter-spacing: 0.02em;
-    display: flex;
-    gap: 1.25rem;
-    flex-wrap: wrap;
-    align-items: baseline;
-}
-div.page-footer-block .footer-sep {
-    color: #cec9bc;
-}
-
 /* Captions: slightly muted, generous line-height for readability. */
 [data-testid="stCaptionContainer"] p {
     color: #7a7060 !important;
@@ -437,32 +420,6 @@ def render_page_header(
     if effective_lede:
         st.html(f'<p class="page-header-lede">{effective_lede}</p>')
     st.html('</div>')
-
-
-def render_page_footer(
-    df: pd.DataFrame | None = None,
-    *,
-    note: str | None = None,
-) -> None:
-    """Small editorial colophon placed at the bottom of each page.
-
-    Shows dataset provenance and, when provided, an optional methodology note
-    (e.g. model version, assumptions, caveats).
-    """
-    inject_page_chrome()
-    parts = ['<span>UCI Online Retail II</span>']
-    if df is not None and len(df):
-        span = (
-            f"{df['InvoiceDate'].min():%b %Y} – {df['InvoiceDate'].max():%b %Y}"
-        )
-        parts.append('<span class="footer-sep">·</span>')
-        parts.append(f'<span>{span}</span>')
-    if note:
-        parts.append('<span class="footer-sep">·</span>')
-        parts.append(f'<span>{note}</span>')
-    st.html(
-        '<div class="page-footer-block">' + "".join(parts) + '</div>'
-    )
 
 
 def render_dq_grid(items: list[tuple[str, str]]) -> None:
