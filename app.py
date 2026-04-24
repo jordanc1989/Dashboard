@@ -11,7 +11,7 @@ from utils import (
 
 st.set_page_config(
     page_title="Customer analytics dashboard",
-    page_icon="static/jordan_cheney_logo_dark.png",
+    page_icon="static/favicon.png",
     layout="wide"
 )
 

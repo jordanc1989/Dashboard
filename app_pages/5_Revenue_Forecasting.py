@@ -190,7 +190,7 @@ with st.expander(
 
 # ── Fit / forecast helpers ────────────────────────────────────────────
 @st.cache_resource(show_spinner="Fitting SARIMA...")
-def fit_sarima(y: pd.Series, order, seasonal_order):
+def fit_sarima(y: pd.Series, order: tuple, seasonal_order: tuple):
     model = SARIMAX(
         y,
         order=order,
@@ -210,7 +210,8 @@ def sarima_forecast(fitted, n, alpha=0.1):
 @st.cache_resource(show_spinner="Fitting Theta model...")
 def fit_theta(y: pd.Series, period: int):
     deseasonalise = period >= 2 and len(y) >= 2 * period
-    kwargs = dict(deseasonalise=deseasonalise)
+    kwargs = {}
+    kwargs["deseasonalise"] = deseasonalise
     if deseasonalise:
         kwargs["period"] = period
         if (y <= 0).any():
