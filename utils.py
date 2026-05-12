@@ -1,10 +1,18 @@
+import time
+import numpy as np
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.io as pio
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, AgglomerativeClustering, HDBSCAN
+from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import (
+    silhouette_score,
+    davies_bouldin_score,
+    calinski_harabasz_score,
+)
 from scipy.stats import boxcox
 
 # Aligned with [theme] chartCategoricalColors / Plotly portfolio colorway
@@ -644,18 +652,128 @@ def transform_rfm(rfm):
     return rfm, X
 
 
-@st.cache_data(max_entries=16)
-def run_clustering(rfm_raw, n_clusters, winsorise_pct=99):
-    rfm = rfm_raw.copy()
+ALGORITHM_LABELS = {
+    "kmeans": "K-means",
+    "gmm": "Gaussian mixture",
+    "agglomerative": "Agglomerative",
+    "hdbscan": "HDBSCAN",
+}
+
+
+def _winsorise(rfm, winsorise_pct):
+    rfm = rfm.copy()
     if winsorise_pct < 100:
         q = winsorise_pct / 100
         for col in ["Recency", "Frequency", "Monetary"]:
-            rfm[col] = rfm[col].clip(lower=rfm[col].quantile(1 - q), upper=rfm[col].quantile(q))
+            rfm[col] = rfm[col].clip(
+                lower=rfm[col].quantile(1 - q), upper=rfm[col].quantile(q)
+            )
+    return rfm
+
+
+def _fit_algorithm(algorithm, X, n_clusters, min_cluster_size):
+    """Fit a clustering algorithm.
+
+    Returns ``(labels, confidence)`` where confidence is a per-customer score
+    in [0, 1] for probabilistic models (GMM max posterior, HDBSCAN membership
+    probability) and ``None`` for K-means / Agglomerative.
+    """
+    if algorithm == "kmeans":
+        km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, random_state=10)
+        return km.fit_predict(X), None
+    if algorithm == "gmm":
+        gmm = GaussianMixture(
+            n_components=n_clusters,
+            covariance_type="full",
+            random_state=10,
+            n_init=5,
+        )
+        labels = gmm.fit_predict(X)
+        confidence = gmm.predict_proba(X).max(axis=1)
+        return labels, confidence
+    if algorithm == "agglomerative":
+        agg = AgglomerativeClustering(n_clusters=n_clusters, linkage="ward")
+        return agg.fit_predict(X), None
+    if algorithm == "hdbscan":
+        hdb = HDBSCAN(min_cluster_size=int(min_cluster_size), copy=True)
+        labels = hdb.fit_predict(X)
+        return labels, hdb.probabilities_
+    raise ValueError(f"Unknown algorithm: {algorithm}")
+
+
+def _safe_silhouette(X, labels):
+    """Silhouette ignoring HDBSCAN noise (-1); returns nan when <2 valid clusters."""
+    mask = labels != -1
+    valid = labels[mask]
+    if len(np.unique(valid)) < 2 or mask.sum() <= len(np.unique(valid)):
+        return float("nan")
+    return float(silhouette_score(X[mask], valid))
+
+
+@st.cache_data(max_entries=16)
+def run_clustering(rfm_raw, n_clusters, winsorise_pct=99, algorithm="kmeans", min_cluster_size=30):
+    rfm = _winsorise(rfm_raw, winsorise_pct)
     rfm, X = transform_rfm(rfm)
-    km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, random_state=10)
-    rfm["Cluster"] = km.fit_predict(X)
-    sil = silhouette_score(X, rfm["Cluster"]) if len(rfm) > n_clusters else float("nan")
+    labels, _ = _fit_algorithm(algorithm, X, n_clusters, min_cluster_size)
+    rfm["Cluster"] = labels
+    sil = _safe_silhouette(X, rfm["Cluster"].to_numpy())
     return rfm, sil
+
+
+@st.cache_data(max_entries=8)
+def run_all_algorithms(rfm_raw, n_clusters, winsorise_pct=99, min_cluster_size=30):
+    """Fit K-means / GMM / Agglomerative / HDBSCAN on the same scaled RFM matrix.
+
+    Returns a dict keyed by algorithm code with fitted labels, the shared scaled
+    matrix `X`, fit time, cluster count, outlier count, and quality metrics.
+    The comparison tab consumes this directly so no algorithm is re-fit.
+    """
+    rfm = _winsorise(rfm_raw, winsorise_pct)
+    rfm_t, X = transform_rfm(rfm)
+
+    results = {}
+    for code in ("kmeans", "gmm", "agglomerative", "hdbscan"):
+        t0 = time.perf_counter()
+        labels, confidence = _fit_algorithm(code, X, n_clusters, min_cluster_size)
+        fit_seconds = time.perf_counter() - t0
+
+        mask = labels != -1
+        valid = labels[mask]
+        unique_clusters = np.unique(valid)
+        n_outliers = int((labels == -1).sum())
+
+        if len(unique_clusters) >= 2 and mask.sum() > len(unique_clusters):
+            db = float(davies_bouldin_score(X[mask], valid))
+            ch = float(calinski_harabasz_score(X[mask], valid))
+            sil = float(silhouette_score(X[mask], valid))
+        else:
+            db = ch = sil = float("nan")
+
+        results[code] = {
+            "labels": labels,
+            "confidence": confidence,
+            "rfm": rfm.assign(Cluster=labels).reset_index(drop=True),
+            "fit_seconds": fit_seconds,
+            "n_clusters": int(len(unique_clusters)),
+            "n_outliers": n_outliers,
+            "metrics": {
+                "silhouette": sil,
+                "davies_bouldin": db,
+                "calinski_harabasz": ch,
+            },
+        }
+
+    return {"X": X, "rfm_winsorised": rfm.reset_index(drop=True), "by_algo": results}
+
+
+@st.cache_data(max_entries=8)
+def pca_project(X):
+    """Project the scaled RFM matrix to 2D via PCA — shared axes for all algorithms."""
+    pca = PCA(n_components=2, random_state=10)
+    coords = pca.fit_transform(X)
+    df = pd.DataFrame(coords, columns=["PC1", "PC2"])
+    variance = tuple(float(v) for v in pca.explained_variance_ratio_)
+    return df, variance
 
 
 @st.cache_data(max_entries=16)
