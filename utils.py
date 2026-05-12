@@ -136,7 +136,7 @@ def render_dataset_subtitle(df: pd.DataFrame) -> None:
     )
 
 
-# ── Page chrome & shared layout helpers ─────────────────────────────────────
+# Page chrome & shared layout helpers
 # Palette + typography already live in .streamlit/config.toml. These helpers
 # add visual hierarchy on top.
 
@@ -161,7 +161,7 @@ summary {
 
 /* Page title: consistent letter-spacing and tight line-height across all pages.
    Streamlit renders st.title() as a sibling component, not a child of the
-   injected page-header-block div, so we target the Streamlit heading wrapper. */
+   injected page-header-block div, so target the Streamlit heading wrapper. */
 [data-testid="stHeadingWithActionElements"] h1 {
     letter-spacing: -0.018em !important;
     line-height: 1.08 !important;
@@ -396,7 +396,7 @@ def render_page_header(
     *,
     lede: str | None = None,
 ) -> None:
-    """Consistent eyebrow → title → lede → meta header used on every page.
+    """Consistent eyebrow -> title -> lede -> meta header used on every page.
 
     Pass ``lede`` to override the canonical page lede from ``PAGE_META``.
     """
@@ -425,9 +425,7 @@ def render_page_header(
 
 def render_dq_grid(items: list[tuple[str, str]]) -> None:
     """Render a two-column definition list for data-quality / summary blocks.
-
-    Replaces markdown tables where hairline dividers and uppercase labels read
-    more like a report than a spreadsheet.
+    
     """
     inject_page_chrome()
     rows = "".join(
@@ -442,14 +440,10 @@ def section(title: str, eyebrow: str | None = None) -> None:
     Replaces ``st.subheader`` where a stronger two-line rhythm is useful.
     """
     inject_page_chrome()
-    eyebrow_html = (
-        f'<span class="section-eyebrow" style="text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.7rem; color: #8a7f66; font-weight: 600; margin-right: 0.6rem;">{eyebrow}</span>' if eyebrow else ""
-    )
+    eyebrow_html = f'<span class="section-eyebrow">{eyebrow}</span>' if eyebrow else ""
     st.html(
-        f'<div class="section-header" style="display: flex; align-items: baseline; margin: 1.5rem 0 0.65rem 0; padding-bottom: 0.4rem; border-bottom: 1px solid #e8e2d2;">'
-        f'{eyebrow_html}'
-        f'<span class="section-title" style="font-size: 1.12rem; font-weight: 600; color: #2b2718; letter-spacing: -0.005em;">{title}</span>'
-        f'</div>'
+        f'<div class="section-header">{eyebrow_html}'
+        f'<span class="section-title">{title}</span></div>'
     )
 
 
@@ -475,7 +469,7 @@ DESCRIPTION_NOISE_TERMS = [
 def _retail_csv_line_filters(df):
     """Drop fee/adjustment-style lines and invalid rows. Expects Invoice/StockCode as str."""
     out = df.copy()
-    if pd.api.types.is_categorical_dtype(out["Country"]):
+    if isinstance(out["Country"].dtype, pd.CategoricalDtype):
         if "Ireland" not in out["Country"].cat.categories:
             out["Country"] = out["Country"].cat.add_categories(["Ireland"])
     out["Country"] = out["Country"].replace({"EIRE": "Ireland"})
@@ -509,17 +503,17 @@ def assign_segment_labels(rfm):
     _M = {"high": "High spend", "mid": "Mid spend", "low": "Low spend"}
     _F = {"high": "Frequent", "mid": "Regular", "low": "Infrequent"}
 
+    def part(cid, mapping, norm):
+        return mapping[_rfm_tier(float(norm[cid]))]
+
     # 2-part labels: Monetary · Recency
-    label_list = [
-        f"{_M[_rfm_tier(float(m_norm[cid]))]}, {_R[_rfm_tier(float(r_inv[cid]))]}"
-        for cid in ranked
-    ]
+    label_list = [f"{part(c, _M, m_norm)}, {part(c, _R, r_inv)}" for c in ranked]
 
     # Add frequency if any 2-part labels collide
     if len(set(label_list)) < len(label_list):
         label_list = [
-            f"{_M[_rfm_tier(float(m_norm[cid]))]}, {_R[_rfm_tier(float(r_inv[cid]))]}, {_F[_rfm_tier(float(f_norm[cid]))]}"
-            for cid in ranked
+            f"{part(c, _M, m_norm)}, {part(c, _R, r_inv)}, {part(c, _F, f_norm)}"
+            for c in ranked
         ]
 
     # Last resort: append rank index
@@ -779,13 +773,7 @@ def pca_project(X):
 
 @st.cache_data(max_entries=16)
 def elbow_data(rfm_raw, winsorise_pct=99, max_segments=6):
-    rfm = rfm_raw.copy()
-
-    if winsorise_pct < 100:
-        q = winsorise_pct / 100
-        for col in ["Recency", "Frequency", "Monetary"]:
-            rfm[col] = rfm[col].clip(lower=rfm[col].quantile(1 - q), upper=rfm[col].quantile(q))
-
+    rfm = _winsorise(rfm_raw, winsorise_pct)
     _, X = transform_rfm(rfm)
 
     max_k = min(MAX_SEGMENTS, len(rfm) - 1)

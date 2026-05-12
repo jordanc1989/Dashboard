@@ -33,7 +33,7 @@ df = apply_sidebar_filters(df)
 render_page_header("forecast", df)
 
 
-# ── Controls ─────────────
+# Controls
 section("Forecast controls", eyebrow="Frequency, model, horizon")
 with st.container(border=True):
     c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
@@ -90,7 +90,7 @@ with st.container(border=True):
 alpha = (100 - confidence_level) / 100
 
 
-# ── Build series ───────────────
+# Build series
 series = build_revenue_series(df, freq=freq_code).astype(float)
 
 last_date_in_data = df["InvoiceDate"].max()
@@ -116,7 +116,7 @@ train = series.iloc[: len(series) - holdout] if holdout > 0 else series
 test = series.iloc[len(series) - holdout :] if holdout > 0 else series.iloc[0:0]
 
 
-# ── Model-specific controls ──────────────
+# Model-specific controls
 with st.expander(
     "Model parameters",
     expanded=False,
@@ -201,7 +201,7 @@ with st.expander(
         )
 
 
-# ── Fit / forecast helpers ────────────────────────────────────────────
+# Fit / forecast helpers
 @st.cache_resource(show_spinner="Fitting SARIMA...")
 def fit_sarima(y: pd.Series, order: tuple, seasonal_order: tuple):
     model = SARIMAX(
@@ -280,7 +280,7 @@ def rmse(y_true, y_pred):
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
-# ── Prepare future index ─────────────────────
+# Prepare future index
 freq_offset = pd.tseries.frequencies.to_offset(freq_code)
 future_index = pd.date_range(
     start=series.index[-1] + freq_offset,
@@ -289,7 +289,7 @@ future_index = pd.date_range(
 )
 
 
-# ── Fit models and produce forecasts ───────────
+# Fit models and produce forecasts
 pred_mean = pred_lo = pred_hi = None
 backtest_mape = backtest_rmse = None
 future_mean = future_lo = future_hi = None
@@ -362,7 +362,7 @@ if pred_mean is not None:
     pred_hi = pred_hi.clip(lower=0)
 
 
-# ── KPIs ────────────────────────
+# KPIs
 st.space("small")
 section("Forecast performance", eyebrow="Backtest & outlook")
 
@@ -385,7 +385,7 @@ with st.container(horizontal=True):
     )
 
 
-# ── Main chart ─────────────
+# Main chart
 st.space("small")
 section("Forecast chart", eyebrow=f"{freq_label.lower()} revenue · {model_name}")
 fig = go.Figure()
@@ -454,7 +454,7 @@ finalise_fig(fig, unified_hover=True)
 st.plotly_chart(fig, width="stretch")
 
 
-# ── Residual diagnostics ──────────────────
+# Residual diagnostics
 st.space("small")
 section("Diagnostics & forecast table", eyebrow="Residuals & values")
 with st.expander(
@@ -499,7 +499,7 @@ with st.expander(
     st.caption(summary_caption)
 
 
-# ── Forecast table ─────────────────────
+# Forecast table
 with st.expander(
     "Forecast values",
     expanded=False,

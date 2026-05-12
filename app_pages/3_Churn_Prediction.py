@@ -62,7 +62,7 @@ cross-validation for the at-risk table below.
         """
     )
 
-# ── Controls ──────────────────
+# Controls
 span_days = (df["InvoiceDate"].max() - df["InvoiceDate"].min()).days
 max_window = max(30, min(365, span_days // 3))
 
@@ -144,7 +144,7 @@ with st.expander(
             ),
         )
 
-# ── Build dataset ────────────────────────────────────────────────────────────
+# Build dataset
 features, meta = build_churn_dataset(df, churn_window_days=int(window_days))
 
 if len(features) < 100 or features["churned"].nunique() < 2:
@@ -169,7 +169,7 @@ X = features[feature_cols].values.astype("float32")
 y = features["churned"].values
 
 
-# ── Train / evaluate ─────────────────────────
+# Train / evaluate
 @st.cache_resource(max_entries=1, show_spinner="Training random forest...")
 def fit_and_score(
     X,
@@ -243,7 +243,7 @@ rec = recall_score(test_metrics["y_test"], y_pred_test, zero_division=0)
 features = features.assign(churn_prob=oof_probs)
 
 
-# ── KPIs ──────────────────────
+# KPIs
 st.space("small")
 section("Model performance", eyebrow="Churn rate & classifier metrics")
 
@@ -314,7 +314,7 @@ st.caption(
     f"churners: **{int(features['churned'].sum()):,}**"
 )
 
-# ── Feature importance + ROC ─────────────────
+# Feature importance + ROC
 st.space("small")
 section("Model explainability", eyebrow="Features & curves")
 left, right = st.columns(2)
@@ -412,7 +412,7 @@ with right:
     )
     st.plotly_chart(fig_roc, width="stretch")
 
-# ── Confusion matrix ─────────────────────────────────────────────────────────
+# Confusion matrix
 cm = confusion_matrix(test_metrics["y_test"], y_pred_test, labels=[0, 1])
 cm_labels = ["Retained", "Churned"]
 fig_cm = px.imshow(
@@ -432,7 +432,7 @@ _pad_l, cm_col, _pad_r = st.columns([3, 4, 3])
 with cm_col:
     st.plotly_chart(fig_cm, width="stretch")
 
-# ── At-risk customer table ───────────────────────────────────────────────────
+# At-risk customer table
 st.space("small")
 section("At-risk customers", eyebrow="Retention targeting")
 st.caption(
@@ -498,7 +498,7 @@ st.dataframe(
     },
 )
 
-# ── Download ─────────────────────────────────────────────────────────────────
+# Download
 export = features[["Customer ID", "churn_prob", "churned"] + feature_cols].rename(
     columns={"churn_prob": "churn_probability", "churned": "actual_churn"}
 )

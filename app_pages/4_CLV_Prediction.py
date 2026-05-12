@@ -67,7 +67,7 @@ if len(summary) < 20:
     st.warning("Too few repeat customers to fit the models reliably. Widen the filters.")
     st.stop()
 
-# ── Controls ───────────────────────────────────────────────────────────────────
+# Controls
 section("Model controls", eyebrow="Horizon & inference")
 with st.container(border=True):
     with st.form("clv_controls"):
@@ -133,7 +133,7 @@ if low_memory_mode and len(fit_summary) > max_customers_for_fit:
         f"Low-memory mode active: fitting on {len(fit_summary):,} of {len(summary):,} customers."
     )
 
-# ── Fit models ────────────────
+# Fit models
 bg_data = fit_summary[fit_summary["frequency"] > 0][["customer_id", "frequency", "recency", "T"]].copy()
 gg_data = fit_summary[(fit_summary["frequency"] > 0) & (fit_summary["monetary_value"] > 0)][["customer_id", "frequency", "monetary_value"]].copy()
 
@@ -187,7 +187,7 @@ with st.spinner(spinner_msg):
     bgm = fit_bgnbd(_df_hash(bg_data), fit_method, bg_data)
     ggm = fit_gg(_df_hash(gg_data), fit_method, gg_data)
 
-# ── Gamma-Gamma independence assumption check ────────────
+# Gamma-Gamma independence assumption check
 fm_corr = gg_data[["frequency", "monetary_value"]].corr().iloc[0, 1]
 if abs(fm_corr) > 0.3:
     st.warning(
@@ -201,7 +201,7 @@ else:
         f"(frequency-monetary correlation = {fm_corr:+.2f}, |r| < 0.3)."
     )
 
-# ── Predictions ────────────────────────────────────────────────────────────────
+# Predictions
 # Label each series with customer_id before assigning back
 predicted_purchases = (
     bgm.expected_purchases(data=bg_data, future_t=horizon_weeks)
@@ -263,7 +263,7 @@ if use_mcmc:
 
 summary = summary.reset_index()  # restore customer_id as a plain column
 
-# ── KPIs ─────────────────────────────────────────
+# KPIs
 st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
@@ -300,7 +300,7 @@ with st.container(horizontal=True):
         "buying state (i.e. will purchase again rather than having churned).",
     )
 
-# ── Out-of-sample validation ────────────────
+# Out-of-sample validation
 @st.cache_data
 def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
@@ -407,7 +407,7 @@ with st.expander(
         st.plotly_chart(fig_val, width="stretch")
 
 
-# ── GG out-of-sample validation ─────────────
+# GG out-of-sample validation
 @st.cache_data
 def run_gg_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
     invoices = (
@@ -529,7 +529,7 @@ with st.expander(
                 "not shown."
             )
 
-# ── Model diagnostics ──────────────────────────────────────────────────────────
+# Model diagnostics
 st.space("small")
 section("Model diagnostics", eyebrow="Frequency x recency surfaces")
 
@@ -628,7 +628,7 @@ with col_d2:
     finalise_fig(fig_alive)
     st.plotly_chart(fig_alive, width="stretch")
 
-# ── CLV distribution ───────────────────────────────────────────────────────────
+# CLV distribution
 st.space("small")
 section("CLV distribution", eyebrow="Histogram & concentration")
 
@@ -688,7 +688,7 @@ with col_h2:
     finalise_fig(fig_lorenz, unified_hover=True)
     st.plotly_chart(fig_lorenz, width="stretch")
 
-# ── Top customers ───────────────
+# Top customers
 st.space("small")
 section("Top customers by predicted CLV", eyebrow="Targeting shortlist")
 
@@ -738,7 +738,7 @@ st.dataframe(
     hide_index=True,
 )
 
-# ── Download ───────────────
+# Download
 st.space("small")
 section("Export", eyebrow="Download")
 export = summary.copy()

@@ -55,7 +55,7 @@ else:
     tab_baseline, tab_compare = st.tabs(["Baseline (K-means)", "Compare algorithms"])
 
     with tab_baseline:
-        # ── k selector + silhouette ─────────────────────────────────────────
+        # k selector + silhouette
         st.space("small")
         with st.container(border=True):
             ctrl_cols = st.columns([3, 1, 1])
@@ -78,7 +78,7 @@ else:
                 )
             sil_slot = ctrl_cols[2].empty()
 
-        # ── Elbow / silhouette chart ──────────────
+        # Elbow / silhouette chart
         with st.expander(
             "Choose number of clusters (Elbow method)",
             expanded=False,
@@ -160,7 +160,7 @@ else:
             help="Measures how well-separated the clusters are (−1 to 1). Higher is better.",
         )
 
-        # ── Segment summary table ───────────────────────────────────────────
+        # Segment summary table
         st.space("small")
         section("Segment profiles", eyebrow="Customer mix")
         segment_summary = (
@@ -196,7 +196,7 @@ else:
             },
             hide_index=True)
 
-        # ── Scatter: full width ────────────────────────────────────────────────
+        # Scatter: full width
         st.space("small")
         section("Segment visualisation", eyebrow="Breakdown")
         use_3d = st.toggle("3D view", value=False, key="scatter_3d")
@@ -261,7 +261,7 @@ else:
             "is visible alongside the gap between £1,000 and £10,000 spenders."
         )
 
-        # ── Radar + Box: side by side ─────────────────────────────────────────
+        # Radar + Box: side by side
         st.space("small")
         col_a, col_b = st.columns(2)
 
@@ -328,7 +328,7 @@ else:
             finalise_fig(fig_box)
             st.plotly_chart(fig_box, width="stretch")
 
-        # ── Download ─────────
+        # Download
         st.space("small")
         section("Export", eyebrow="Download results")
         csv = rfm_display[
@@ -428,7 +428,7 @@ else:
 
         labelled = {code: _label_algo(code) for code in by_algo}
 
-        # ── Viz 1: Scorecard table ───────────────────────────────────────
+        # Scorecard table
         st.space("small")
         section("Model scorecard", eyebrow="Quality metrics")
 
@@ -470,7 +470,7 @@ else:
         )
         st.dataframe(styled, width="stretch", hide_index=True)
 
-        # ── Viz 2: Metric bar charts ─────────────────────────────────────
+        # Metric bar charts
         st.space("small")
         section("Metric comparison", eyebrow="By model")
 
@@ -524,7 +524,7 @@ else:
                 width="stretch",
             )
 
-        # ── Viz 3: Side-by-side PCA scatter ─────────────────────────────
+        # Side-by-side PCA scatter
         st.space("small")
         section("PCA projection", eyebrow="Shared 2D map")
         pca_df, variance = pca_project(X_shared)
@@ -590,7 +590,7 @@ else:
             with slot:
                 st.plotly_chart(fig_pca, width="stretch")
 
-        # ── Viz 4: Segment-size grouped bar ─────────────────────────────
+        # Segment-size grouped bar
         st.space("small")
         section("Segment balance", eyebrow="Customer share")
 
@@ -618,7 +618,7 @@ else:
         finalise_fig(fig_size)
         st.plotly_chart(fig_size, width="stretch")
 
-        # ── Viz 5: RFM profile heatmap ──────────────────────────────────
+        # RFM profile heatmap
         st.space("small")
         section("RFM profile heatmap", eyebrow="Mean R/F/M per (model, segment)")
         st.caption(
@@ -669,7 +669,7 @@ else:
         finalise_fig(fig_heat)
         st.plotly_chart(fig_heat, width="stretch")
 
-        # ── Viz 8: Revenue share by segment per model ───────────────────
+        # Revenue share by segment per model
         st.space("small")
         section("Revenue concentration", eyebrow="Where does the money sit?")
         st.caption(
@@ -709,7 +709,7 @@ else:
         finalise_fig(fig_rev)
         st.plotly_chart(fig_rev, width="stretch")
 
-        # ── Viz 9: Confidence distribution ──────────────────────────────
+        # Confidence distribution
         st.space("small")
         section("Assignment confidence", eyebrow="GMM & HDBSCAN")
         st.caption(
@@ -743,7 +743,7 @@ else:
                 with slot:
                     st.plotly_chart(fig_conf, width="stretch")
 
-        # ── Viz 10: Business-label diff table ───────────────────────────
+        # Business-label diff table
         st.space("small")
         section("Business label diff", eyebrow="Would decisions change?")
         st.caption(

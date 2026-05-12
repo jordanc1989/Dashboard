@@ -24,7 +24,7 @@ df = apply_sidebar_filters(df)
 
 render_page_header("overview", df)
 
-# ── Data quality summary ───────
+# Data quality summary
 with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
     removed = raw_count - len(df)
@@ -44,7 +44,7 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
-# ── KPI row ─────────
+# KPI row
 section("Headline KPIs", eyebrow="Trailing 12 months")
 monthly = df.groupby("Month").agg(
     revenue=("Revenue", "sum"),
@@ -90,7 +90,7 @@ with st.container(horizontal=True):
 
 st.space("small")
 
-# ── Monthly revenue area chart with smoothing ────────
+# Monthly revenue area chart with smoothing
 section("Revenue trend", eyebrow="Monthly")
 monthly_revenue = df.groupby("Month")["Revenue"].sum().reset_index()
 fig_line = go.Figure(go.Scatter(
