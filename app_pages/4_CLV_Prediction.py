@@ -26,7 +26,7 @@ def _df_hash(df: pd.DataFrame) -> str:
     return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
 
 st.set_page_config(
-    page_title="CLV prediction · Customer analytics",
+    page_title="CLV prediction",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )
@@ -296,6 +296,8 @@ with st.container(horizontal=True):
         "Median P(still active)",
         f"{summary['prob_alive'].median()*100:.1f}%",
         border=True,
+        help="BG/NBD posterior probability that a customer is still in the active "
+        "buying state (i.e. will purchase again rather than having churned).",
     )
 
 # ── Out-of-sample validation ────────────────

@@ -33,7 +33,7 @@ from utils import (
 )
 
 st.set_page_config(
-    page_title="Churn prediction · Customer analytics",
+    page_title="Churn prediction",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide",
 )

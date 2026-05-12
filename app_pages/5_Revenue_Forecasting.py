@@ -22,7 +22,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="statsmodels")
 
 
 st.set_page_config(
-    page_title="Revenue forecasting · Customer analytics",
+    page_title="Revenue forecasting",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide",
 )
@@ -36,7 +36,7 @@ render_page_header("forecast", df)
 # ── Controls ─────────────
 section("Forecast controls", eyebrow="Frequency, model, horizon")
 with st.container(border=True):
-    c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
 
     with c1:
         freq_label = st.selectbox(
@@ -75,6 +75,19 @@ with st.container(border=True):
             value=8 if freq_code == "W" else 2,
             help="Periods held out at the end of the series for backtest metrics.",
         )
+
+    with c5:
+        confidence_level = st.slider(
+            "Confidence level",
+            min_value=80,
+            max_value=99,
+            value=90,
+            step=1,
+            help="Width of the forecast prediction interval. Higher = wider band "
+            "but more likely to contain the true value.",
+        )
+
+alpha = (100 - confidence_level) / 100
 
 
 # ── Build series ───────────────
@@ -226,8 +239,9 @@ def theta_forecast(fitted, n, theta: float, alpha=0.1):
         pi = fitted.prediction_intervals(steps=n, theta=theta, alpha=alpha)
         lo, hi = pi.iloc[:, 0], pi.iloc[:, 1]
     except Exception:
+        from scipy.stats import norm
         resid_std = float(np.std(np.asarray(fitted.resid)))
-        z = 1.645
+        z = float(norm.ppf(1 - alpha / 2))
         steps = np.arange(1, n + 1)
         band = z * resid_std * np.sqrt(steps)
         lo = pd.Series(mean.values - band, index=mean.index)
@@ -289,7 +303,7 @@ try:
 
         if holdout > 0:
             fitted_train = fit_sarima(train, order, seasonal_order)
-            pm, plo, phi = sarima_forecast(fitted_train, len(test))
+            pm, plo, phi = sarima_forecast(fitted_train, len(test), alpha=alpha)
             pred_mean = pd.Series(pm.values, index=test.index)
             pred_lo = pd.Series(plo.values, index=test.index)
             pred_hi = pd.Series(phi.values, index=test.index)
@@ -297,7 +311,7 @@ try:
             backtest_rmse = rmse(test.values, pred_mean.values)
 
         full_fit = fit_sarima(series, order, seasonal_order)
-        fm, flo, fhi = sarima_forecast(full_fit, horizon)
+        fm, flo, fhi = sarima_forecast(full_fit, horizon, alpha=alpha)
         future_mean = pd.Series(fm.values, index=future_index)
         future_lo = pd.Series(flo.values, index=future_index)
         future_hi = pd.Series(fhi.values, index=future_index)
@@ -311,7 +325,7 @@ try:
 
         if holdout > 0:
             fitted_train = fit_theta(train, period)
-            pm, plo, phi = theta_forecast(fitted_train, len(test), float(theta_param))
+            pm, plo, phi = theta_forecast(fitted_train, len(test), float(theta_param), alpha=alpha)
             pred_mean = pd.Series(np.asarray(pm), index=test.index)
             pred_lo = pd.Series(np.asarray(plo), index=test.index)
             pred_hi = pd.Series(np.asarray(phi), index=test.index)
@@ -319,7 +333,7 @@ try:
             backtest_rmse = rmse(test.values, pred_mean.values)
 
         full_fit = fit_theta(series, period)
-        fm, flo, fhi = theta_forecast(full_fit, horizon, float(theta_param))
+        fm, flo, fhi = theta_forecast(full_fit, horizon, float(theta_param), alpha=alpha)
         future_mean = pd.Series(np.asarray(fm), index=future_index)
         future_lo = pd.Series(np.asarray(flo), index=future_index)
         future_hi = pd.Series(np.asarray(fhi), index=future_index)
@@ -405,7 +419,7 @@ fig.add_trace(go.Scatter(
     fillcolor="rgba(184,95,61,0.15)",
     line=dict(color="rgba(0,0,0,0)"),
     hoverinfo="skip",
-    name="90% CI (future)",
+    name=f"{confidence_level}% CI (future)",
     showlegend=True,
 ))
 
@@ -415,6 +429,16 @@ fig.add_trace(go.Scatter(
     mode="lines",
     line=dict(color="#B85F3D", width=2.5, shape="spline"),
 ))
+
+historical_mean = float(series.mean())
+fig.add_hline(
+    y=historical_mean,
+    line=dict(color=NEUTRAL_GRID, width=1, dash="dot"),
+    annotation_text=f"Historical mean (£{historical_mean:,.0f})",
+    annotation_position="top left",
+    annotation_font_size=10,
+    annotation_font_color="#6a6350",
+)
 
 fig.update_layout(
     title=f"{freq_label} Revenue - {model_name} Forecast",
@@ -481,11 +505,13 @@ with st.expander(
     expanded=False,
     icon=":material/table_chart:",
 ):
+    lo_col = f"Lower {confidence_level}% (£)"
+    hi_col = f"Upper {confidence_level}% (£)"
     fc_table = pd.DataFrame({
         "Period": future_mean.index.strftime("%Y-%m-%d"),
         "Forecast (£)": future_mean.values.astype(float),
-        "Lower 90% (£)": future_lo.values.astype(float),
-        "Upper 90% (£)": future_hi.values.astype(float),
+        lo_col: future_lo.values.astype(float),
+        hi_col: future_hi.values.astype(float),
     })
     st.dataframe(
         fc_table,
@@ -493,8 +519,8 @@ with st.expander(
         hide_index=True,
         column_config={
             "Forecast (£)": st.column_config.NumberColumn(format="£%.0f"),
-            "Lower 90% (£)": st.column_config.NumberColumn(format="£%.0f"),
-            "Upper 90% (£)": st.column_config.NumberColumn(format="£%.0f"),
+            lo_col: st.column_config.NumberColumn(format="£%.0f"),
+            hi_col: st.column_config.NumberColumn(format="£%.0f"),
         },
     )
 

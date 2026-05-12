@@ -14,7 +14,7 @@ from utils import (
 )
 
 st.set_page_config(
-    page_title="Overview · Customer analytics",
+    page_title="Overview",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )

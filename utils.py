@@ -350,8 +350,9 @@ PAGE_META: dict[str, dict[str, str]] = {
         "title": "RFM segmentation",
         "lede": (
             "Customers are scored on Recency (days since last purchase), Frequency "
-            "(orders), and Monetary (total spend). K-means groups them intelligently into "
-            "segments for targeted marketing."
+            "(orders), and Monetary (total spend). K-means is the baseline; the "
+            "Compare tab benchmarks it against Gaussian mixture, Agglomerative "
+            "clustering and HDBSCAN side by side."
         ),
     },
     "churn": {
@@ -373,7 +374,7 @@ PAGE_META: dict[str, dict[str, str]] = {
         "lede": (
             "Two probabilistic models are chained: BG/NBD forecasts when customers "
             "will purchase again, and Gamma-Gamma forecasts how much they'll spend. "
-            "Together they deliver a per-customer lifetime value."
+            "Together, they deliver a per-customer lifetime value."
         ),
     },
     "forecast": {
@@ -679,12 +680,12 @@ def _fit_algorithm(algorithm, X, n_clusters, min_cluster_size):
     probability) and ``None`` for K-means / Agglomerative.
     """
     if algorithm == "kmeans":
-        km = KMeans(n_clusters=n_clusters, init="k-means++", n_init=10, random_state=10)
+        km = KMeans(n_clusters=n_clusters, n_init="auto", random_state=10)
         return km.fit_predict(X), None
     if algorithm == "gmm":
         gmm = GaussianMixture(
             n_components=n_clusters,
-            covariance_type="full",
+            covariance_type="diag",
             random_state=10,
             n_init=5,
         )
@@ -695,7 +696,7 @@ def _fit_algorithm(algorithm, X, n_clusters, min_cluster_size):
         agg = AgglomerativeClustering(n_clusters=n_clusters, linkage="ward")
         return agg.fit_predict(X), None
     if algorithm == "hdbscan":
-        hdb = HDBSCAN(min_cluster_size=int(min_cluster_size), copy=True)
+        hdb = HDBSCAN(min_cluster_size=int(min_cluster_size), min_samples=5, cluster_selection_method="eom", copy=True)
         labels = hdb.fit_predict(X)
         return labels, hdb.probabilities_
     raise ValueError(f"Unknown algorithm: {algorithm}")
@@ -729,7 +730,7 @@ def run_all_algorithms(rfm_raw, n_clusters, winsorise_pct=99, min_cluster_size=3
     The comparison tab consumes this directly so no algorithm is re-fit.
     """
     rfm = _winsorise(rfm_raw, winsorise_pct)
-    rfm_t, X = transform_rfm(rfm)
+    _, X = transform_rfm(rfm)
 
     results = {}
     for code in ("kmeans", "gmm", "agglomerative", "hdbscan"):

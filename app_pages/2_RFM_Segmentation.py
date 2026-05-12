@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from scipy.spatial import ConvexHull, QhullError
 from utils import (
     CHART_COLORWAY,
     load_data,
@@ -22,8 +23,14 @@ from utils import (
     finalise_fig,
 )
 
+
+def _hex_to_rgba(hex_c, alpha):
+    h = hex_c.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
 st.set_page_config(
-    page_title="RFM segmentation · Customer analytics",
+    page_title="RFM segmentation",
     page_icon="static/jordan_cheney_logo_new.png",
     layout="wide"
 )
@@ -249,6 +256,10 @@ else:
 
         finalise_fig(fig_scatter)
         st.plotly_chart(fig_scatter, width="stretch")
+        st.caption(
+            "Spend axis is log-scaled so the gap between £10 and £100 spenders "
+            "is visible alongside the gap between £1,000 and £10,000 spenders."
+        )
 
         # ── Radar + Box: side by side ─────────────────────────────────────────
         st.space("small")
@@ -519,16 +530,10 @@ else:
         pca_df, variance = pca_project(X_shared)
         pc1_pct, pc2_pct = variance[0] * 100, variance[1] * 100
         st.caption(
-            f"PC1 ({pc1_pct:.1f}% var) · PC2 ({pc2_pct:.1f}% var) — "
-            "all four scatters share the same projection so cluster shapes are directly comparable."
+            f"PC1 ({pc1_pct:.1f}% var) · PC2 ({pc2_pct:.1f}% var) · "
+            f"{pc1_pct + pc2_pct:.1f}% total — all four scatters share the same "
+            "projection so cluster shapes are directly comparable."
         )
-
-        from scipy.spatial import ConvexHull, QhullError
-
-        def _hex_to_rgba(hex_c, alpha):
-            h = hex_c.lstrip("#")
-            r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-            return f"rgba({r},{g},{b},{alpha})"
 
         pca_cols_a = st.columns(2)
         pca_cols_b = st.columns(2)
