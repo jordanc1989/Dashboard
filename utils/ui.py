@@ -184,10 +184,10 @@ button[kind="secondary"], button[kind="primary"] {
 def inject_page_chrome() -> None:
     """Inject shared page chrome styles once per session.
 
-    Idempotent across reruns (same markup), so calling it at the top of
-    every page is safe.
+    Uses ``st.markdown`` with ``unsafe_allow_html=True`` because ``st.html``
+    strips ``<style>`` tags in Streamlit 1.57+.
     """
-    st.html(_PAGE_CHROME_CSS)
+    st.markdown(_PAGE_CHROME_CSS, unsafe_allow_html=True)
 
 
 # Canonical page metadata — keeps eyebrow/icon/lede in one place so home
