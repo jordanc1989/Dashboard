@@ -1,9 +1,11 @@
 [project]
 name = "Dashboard"
-version = "0.1.0"
-description = "Customer Lifetime Value Dashboard in Streamlit"
+version = "0.1.1"
+description = "RFM/CLV Dashboard in Streamlit"
 readme = "README.md"
 requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "numpy>=2.4.4",
     "pandas>=3.0.3",
@@ -15,3 +17,6 @@ dependencies = [
     "streamlit>=1.57.0",
     "watchdog>=6.0.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/jordanc1989/Dashboard"
