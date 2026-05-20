@@ -10,7 +10,6 @@ from sklearn.metrics import (
     davies_bouldin_score,
     calinski_harabasz_score,
 )
-from scipy.stats import boxcox
 
 from utils.transforms import transform_rfm
 
@@ -203,7 +202,7 @@ def elbow_data(rfm_raw, winsorise_pct=99, max_segments=6):
     rfm = _winsorise(rfm_raw, winsorise_pct)
     _, X = transform_rfm(rfm)
 
-    max_k = min(MAX_SEGMENTS, len(rfm) - 1)
+    max_k = min(max_segments, len(rfm) - 1)
     if max_k < 2:
         return [], [], []
 

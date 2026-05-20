@@ -33,7 +33,7 @@ PAGE_CARDS = [
 ]
 
 
-def _render_hero(df: pd.DataFrame) -> None:
+def _render_hero() -> None:
     """Editorial hero for the home page: eyebrow, title, tagline, dataset meta."""
     st.html('<div class="page-header-block page-hero-block">')
 
@@ -91,7 +91,7 @@ def home_page():
     df = load_data()
     df = apply_sidebar_filters(df)
 
-    _render_hero(df)
+    _render_hero()
     st.space("medium")
 
     section("At a glance", eyebrow="Dataset snapshot")
