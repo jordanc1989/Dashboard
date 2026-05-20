@@ -92,5 +92,3 @@ See `pyproject.toml` for pinned version constraints and `uv.lock` for the fully 
 ## License
 
 Released under the [MIT License](LICENSE).
-</content>
-</invoke>
