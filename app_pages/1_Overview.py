@@ -44,48 +44,69 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
-# KPI row
+# KPI row — restricted to the trailing 12 months of the filtered range so the
+# eyebrow, headline values and sparklines all describe the same window.
+max_date = df["InvoiceDate"].max()
+t12m_start = max_date - pd.DateOffset(months=12)
+df_t12 = df[df["InvoiceDate"] >= t12m_start]
+invoice_totals_t12 = df_t12.groupby("Invoice")["Revenue"].sum()
+
 section("Headline KPIs", eyebrow="Trailing 12 months")
-monthly = df.groupby("Month").agg(
+monthly_kpi = df_t12.groupby("Month").agg(
     revenue=("Revenue", "sum"),
     customers=("Customer ID", "nunique"),
     orders=("Invoice", "nunique"),
 ).reset_index()
-monthly["aov"] = monthly["revenue"] / monthly["orders"].replace(0, pd.NA)
+# AOV: mean of invoice totals within each month — matches the headline definition.
+monthly_aov = (
+    df_t12.groupby(["Month", "Invoice"])["Revenue"].sum()
+    .groupby(level="Month").mean()
+    .rename("aov").reset_index()
+)
+monthly_kpi = monthly_kpi.merge(monthly_aov, on="Month", how="left")
 
-trend_revenue = monthly["revenue"].tail(12).tolist()
-trend_customers = monthly["customers"].tail(12).tolist()
-trend_orders = monthly["orders"].tail(12).tolist()
-trend_aov = monthly["aov"].tail(12).fillna(0).tolist()
+trend_revenue = monthly_kpi["revenue"].tail(12).tolist()
+trend_customers = monthly_kpi["customers"].tail(12).tolist()
+trend_orders = monthly_kpi["orders"].tail(12).tolist()
+trend_aov = monthly_kpi["aov"].tail(12).fillna(0).tolist()
+
+guest_share_t12 = df_t12["is_guest"].mean() * 100
 
 with st.container(horizontal=True):
     st.metric(
-        "Total revenue",
-        f"£{df['Revenue'].sum():,.0f}",
+        "Revenue (T12M)",
+        f"£{df_t12['Revenue'].sum():,.0f}",
         border=True,
         chart_data=trend_revenue,
         chart_type="line",
+        help=f"Sum of revenue from {t12m_start:%d %b %Y} to {max_date:%d %b %Y}. Includes guest checkouts.",
     )
     st.metric(
-        "Unique customers",
-        f"{df['Customer ID'].nunique():,}",
+        "Registered customers (T12M)",
+        f"{df_t12['Customer ID'].nunique():,}",
         border=True,
         chart_data=trend_customers,
         chart_type="line",
+        help=(
+            "Distinct Customer IDs in the trailing 12 months. Guest checkouts "
+            f"have no ID and so are excluded ({guest_share_t12:.1f}% of rows are guest)."
+        ),
     )
     st.metric(
-        "Total orders",
-        f"{df['Invoice'].nunique():,}",
+        "Orders (T12M)",
+        f"{df_t12['Invoice'].nunique():,}",
         border=True,
         chart_data=trend_orders,
         chart_type="line",
+        help="Distinct invoices in the trailing 12 months. Includes guest checkouts.",
     )
     st.metric(
-        "Avg order value",
-        f"£{df.groupby('Invoice')['Revenue'].sum().mean():,.2f}",
+        "Avg order value (T12M)",
+        f"£{invoice_totals_t12.mean():,.2f}",
         border=True,
         chart_data=trend_aov,
         chart_type="line",
+        help="Mean of invoice totals over the trailing 12 months. Sparkline shows the same mean computed within each month.",
     )
 
 st.space("small")
@@ -129,9 +150,21 @@ with col_left:
     st.plotly_chart(fig_bar, width='stretch')
 
 with col_right:
+    # Group by StockCode (stable product identity) and use the most common
+    # description as the display label — Description has typos/casing variants
+    # that would otherwise split or merge SKUs incorrectly.
     top_products = (
-        df.groupby("Description")["Revenue"].sum()
-        .sort_values(ascending=False).head(10).reset_index()
+        df.groupby("StockCode")
+        .agg(
+            Revenue=("Revenue", "sum"),
+            Description=(
+                "Description",
+                lambda s: s.dropna().mode().iloc[0] if not s.dropna().empty else "",
+            ),
+        )
+        .sort_values("Revenue", ascending=False)
+        .head(10)
+        .reset_index()
     )
     fig_prod = px.bar(
         top_products, x="Revenue", y="Description",

@@ -73,9 +73,9 @@ def assign_segment_labels(rfm):
             for c in ranked
         ]
 
-    # Last resort: append rank index
+    # Last resort: prefix with rank (Tier 1 = best by combined R/F/M score)
     if len(set(label_list)) < len(label_list):
-        label_list = [f"{lbl} ({i + 1})" for i, lbl in enumerate(label_list)]
+        label_list = [f"Tier {i + 1}: {lbl}" for i, lbl in enumerate(label_list)]
 
     label_map = dict(zip(ranked, label_list))
     color_map = {lbl: _SEGMENT_PALETTE[i % len(_SEGMENT_PALETTE)] for i, lbl in enumerate(label_list)}

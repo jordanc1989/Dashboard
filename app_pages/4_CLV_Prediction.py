@@ -122,15 +122,16 @@ fit_method = "mcmc" if use_mcmc else "map"
 
 fit_summary = summary.copy()
 if low_memory_mode and len(fit_summary) > max_customers_for_fit:
-    # Keep the most information-rich customers for model fitting.
-    fit_summary = (
-        fit_summary
-        .sort_values(["frequency", "monetary_value", "T"], ascending=False)
-        .head(max_customers_for_fit)
-        .copy()
-    )
+    # Random sample, not top-N by activity: sorting on frequency/monetary
+    # would drop the low-activity tail that the BG/NBD model needs to
+    # estimate the dropout-rate distribution, biasing every parameter.
+    fit_summary = fit_summary.sample(
+        n=max_customers_for_fit, random_state=42
+    ).reset_index(drop=True)
     st.caption(
-        f"Low-memory mode active: fitting on {len(fit_summary):,} of {len(summary):,} customers."
+        f"Low-memory mode active: fitting on a random sample of {len(fit_summary):,} of "
+        f"{len(summary):,} customers. Headline KPIs and the at-risk table cover the "
+        f"modelled sample only."
     )
 
 # Fit models
@@ -267,37 +268,65 @@ summary = summary.reset_index()  # restore customer_id as a plain column
 st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
-total_clv = summary["clv"].sum()
-median_clv = clv.median()  # median over modelled customers only. Summary includes zero-filled one-time buyers
+# Restrict headline aggregates to modelled customers — the rest are zero-filled
+# placeholders, not predictions, and summing over them silently understates totals.
+n_modelled = len(clv)
+total_clv = float(clv.sum())
+median_clv = float(clv.median())
+n_total = len(summary)
+modelled_help = (
+    f"Across {n_modelled:,} modelled customers"
+    + (f" of {n_total:,} in the filtered range" if n_modelled < n_total else "")
+    + "."
+)
 
 with st.container(horizontal=True):
-    st.metric("Customers modelled", f"{len(summary):,}", border=True)
+    st.metric(
+        "Customers modelled",
+        f"{n_modelled:,}",
+        border=True,
+        help=(
+            "Repeat buyers with positive spend (BG/NBD + Gamma-Gamma requirement). "
+            f"Filtered range contains {n_total:,} customers total."
+        ),
+    )
     if use_mcmc:
+        clv_p05_sum = float(summary.loc[summary["customer_id"].isin(clv.index), "clv_p05"].sum())
+        clv_p95_sum = float(summary.loc[summary["customer_id"].isin(clv.index), "clv_p95"].sum())
+        clv_p05_med = float(summary.loc[summary["customer_id"].isin(clv.index), "clv_p05"].median())
+        clv_p95_med = float(summary.loc[summary["customer_id"].isin(clv.index), "clv_p95"].median())
         st.metric(
             f"Expected revenue (next {horizon_months}m)",
             f"£{total_clv:,.0f}",
             border=True,
-            help=f"90% credible interval: £{summary['clv_p05'].sum():,.0f} - £{summary['clv_p95'].sum():,.0f}",
+            help=f"{modelled_help} 90% credible interval: £{clv_p05_sum:,.0f} - £{clv_p95_sum:,.0f}",
         )
         st.metric(
             "Median CLV",
             f"£{median_clv:,.2f}",
             border=True,
-            help=f"90% credible interval: £{summary['clv_p05'].median():,.2f} - £{summary['clv_p95'].median():,.2f}",
+            help=f"{modelled_help} 90% credible interval: £{clv_p05_med:,.2f} - £{clv_p95_med:,.2f}",
         )
     else:
         st.metric(
             f"Expected revenue (next {horizon_months}m)",
             f"£{total_clv:,.0f}",
             border=True,
+            help=modelled_help,
         )
-        st.metric("Median CLV", f"£{median_clv:,.2f}", border=True)
+        st.metric(
+            "Median CLV",
+            f"£{median_clv:,.2f}",
+            border=True,
+            help=modelled_help,
+        )
     st.metric(
         "Median P(still active)",
-        f"{summary['prob_alive'].median()*100:.1f}%",
+        f"{float(prob_alive.median())*100:.1f}%",
         border=True,
         help="BG/NBD posterior probability that a customer is still in the active "
-        "buying state (i.e. will purchase again rather than having churned).",
+        "buying state (i.e. will purchase again rather than having churned). "
+        + modelled_help,
     )
 
 # Out-of-sample validation
@@ -344,6 +373,19 @@ def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
 
 st.space("small")
 section("Out-of-sample validation", eyebrow="75 / 25 time split")
+
+# Validate on the same customer population the page model is fit against —
+# otherwise the metrics describe a different model from the one being scored.
+modelled_ids = set(fit_summary["customer_id"].astype(str))
+df_for_validation = df_customers[
+    df_customers["Customer ID"].astype(str).isin(modelled_ids)
+]
+if low_memory_mode and len(fit_summary) < len(summary):
+    st.caption(
+        f"Validation is run on the same {len(fit_summary):,}-customer sample as the "
+        "deployed model so the metrics describe what's actually being scored."
+    )
+
 with st.expander(
     "BG/NBD model: predicted vs actual purchases",
     expanded=False,
@@ -357,7 +399,7 @@ with st.expander(
         "Close alignment with the dashed y=x line indicates the model is well-calibrated. "
     )
 
-    validation = run_holdout_validation(_df_hash(df_customers), df_customers)
+    validation = run_holdout_validation(_df_hash(df_for_validation), df_for_validation)
     if validation is None:
         st.caption("Not enough data to run holdout validation for this selection.")
     else:
@@ -475,7 +517,7 @@ with st.expander(
         "the model's spend predictions."
     )
 
-    gg_validation = run_gg_holdout_validation(_df_hash(df_customers), df_customers)
+    gg_validation = run_gg_holdout_validation(_df_hash(df_for_validation), df_for_validation)
     if gg_validation is None:
         st.caption("Not enough data to run Gamma-Gamma holdout validation for this selection.")
     else:

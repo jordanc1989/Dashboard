@@ -22,6 +22,7 @@ from utils import (
     NEUTRAL_RADAR_GRID,
     finalise_fig,
 )
+from utils.clustering import _SEGMENT_PALETTE
 
 
 def _hex_to_rgba(hex_c, alpha):
@@ -428,6 +429,22 @@ else:
 
         labelled = {code: _label_algo(code) for code in by_algo}
 
+        # Shared colour map: one colour per unique segment label across the
+        # whole tab so the same persona keeps the same colour in every chart.
+        # First-encounter ordering walks each algorithm's best→worst list,
+        # so the highest-spend segments tend to claim the warmest palette slots.
+        shared_segments = []
+        for code in by_algo:
+            _, _, ordered = labelled[code]
+            for seg in ordered:
+                if seg != "Outliers" and seg not in shared_segments:
+                    shared_segments.append(seg)
+        shared_color_map = {
+            seg: _SEGMENT_PALETTE[i % len(_SEGMENT_PALETTE)]
+            for i, seg in enumerate(shared_segments)
+        }
+        shared_color_map["Outliers"] = NEUTRAL_GRID
+
         # Scorecard table
         st.space("small")
         section("Model scorecard", eyebrow="Quality metrics")
@@ -540,7 +557,7 @@ else:
         slots = [pca_cols_a[0], pca_cols_a[1], pca_cols_b[0], pca_cols_b[1]]
 
         for slot, code in zip(slots, by_algo.keys()):
-            seg_full, color_map, ordered = labelled[code]
+            seg_full, _, ordered = labelled[code]
             plot_df = pca_df.copy()
             plot_df["Segment"] = seg_full.values
             fig_pca = px.scatter(
@@ -548,7 +565,7 @@ else:
                 x="PC1",
                 y="PC2",
                 color="Segment",
-                color_discrete_map=color_map,
+                color_discrete_map=shared_color_map,
                 category_orders={"Segment": ordered},
                 title=ALGORITHM_LABELS[code],
                 opacity=0.65,
@@ -574,7 +591,7 @@ else:
                     continue
                 ring = pts[hull.vertices]
                 ring = np.vstack([ring, ring[0]])
-                seg_color = color_map.get(seg, CHART_COLORWAY[0])
+                seg_color = shared_color_map.get(seg, CHART_COLORWAY[0])
                 fig_pca.add_trace(go.Scatter(
                     x=ring[:, 0],
                     y=ring[:, 1],
@@ -611,6 +628,8 @@ else:
             x="Model",
             y="Share %",
             color="Segment",
+            color_discrete_map=shared_color_map,
+            category_orders={"Segment": list(shared_color_map.keys())},
             barmode="group",
             title="Customer share by segment within each model",
         )
@@ -702,6 +721,8 @@ else:
             x="Model",
             y="Revenue share %",
             color="Segment",
+            color_discrete_map=shared_color_map,
+            category_orders={"Segment": list(shared_color_map.keys())},
             barmode="stack",
             title="Revenue share by segment within each model",
         )

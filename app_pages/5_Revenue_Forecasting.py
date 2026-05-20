@@ -452,6 +452,11 @@ fig.update_layout(
 )
 finalise_fig(fig, unified_hover=True)
 st.plotly_chart(fig, width="stretch")
+st.caption(
+    "Forecast mean and prediction band are clipped at £0 since revenue cannot be "
+    "negative. If the lower band sits flush against the x-axis the underlying "
+    "Gaussian interval extends below zero — read it as 'lower bound ≈ 0', not 'tight CI'."
+)
 
 
 # Residual diagnostics

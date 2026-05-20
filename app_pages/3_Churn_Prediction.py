@@ -14,11 +14,7 @@ from sklearn.metrics import (
     roc_curve,
 )
 import numpy as np
-from sklearn.model_selection import (
-    StratifiedKFold,
-    cross_val_predict,
-    train_test_split,
-)
+from sklearn.model_selection import StratifiedKFold
 
 from utils import (
     CHART_COLORWAY,
@@ -55,10 +51,11 @@ standard workaround for non-contractual retail is a **rolling-window definition*
    **using only transactions up to `cutoff`** (no look-ahead). 
 4. Label the customer **churned = 1** if they made no purchase in the window.
 
-This gives a ground truth from the data itself. The model is
-then trained and evaluated on an 80 / 20 stratified split of this labelled set,
-and out-of-fold probabilities are generated for every customer via 3-fold
-cross-validation for the at-risk table below.
+This gives a ground truth from the data itself. The model is evaluated via
+5-fold stratified cross-validation: every customer gets an out-of-fold
+probability (used for both the metrics and the at-risk table), so the
+headline AUC, precision, recall, ROC and confusion matrix all come from
+the same set of predictions.
         """
     )
 
@@ -159,6 +156,7 @@ feature_cols = [
     "recency_days",
     "tenure_days",
     "frequency",
+    "orders_per_month",
     "monetary",
     "avg_order_value",
     "avg_items_per_order",
@@ -181,7 +179,12 @@ def fit_and_score(
     max_depth: int,
     min_samples_split: int,
 ):
-    """Returns (test_metrics_dict, oof_probs, feat_importances)."""
+    """5-fold stratified CV. Returns (metrics_dict, oof_probs, feat_importances).
+
+    Every customer gets exactly one out-of-fold prediction; headline metrics,
+    ROC and confusion matrix all come from this same OOF vector so the numbers
+    on the page are mutually consistent.
+    """
     rf_kwargs = dict(
         n_estimators=n_estimators,
         max_depth=max_depth,
@@ -193,39 +196,36 @@ def fit_and_score(
     if balance:
         rf_kwargs["class_weight"] = "balanced"
 
-    X_tr, X_te, y_tr, y_te = train_test_split(
-        X, y, test_size=0.2, stratify=y, random_state=10
-    )
-    model = RandomForestClassifier(**rf_kwargs)
-    model.fit(X_tr, y_tr)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=10)
+    oof = np.zeros(len(y), dtype="float64")
+    fold_test_aucs = []
+    fold_train_aucs = []
 
-    train_proba = model.predict_proba(X_tr)[:, 1]
-    train_auc = roc_auc_score(y_tr, train_proba)
+    for train_idx, test_idx in cv.split(X, y):
+        fold_model = RandomForestClassifier(**rf_kwargs)
+        fold_model.fit(X[train_idx], y[train_idx])
+        train_proba = fold_model.predict_proba(X[train_idx])[:, 1]
+        test_proba = fold_model.predict_proba(X[test_idx])[:, 1]
+        oof[test_idx] = test_proba
+        fold_train_aucs.append(roc_auc_score(y[train_idx], train_proba))
+        fold_test_aucs.append(roc_auc_score(y[test_idx], test_proba))
 
-    test_proba = model.predict_proba(X_te)[:, 1]
-    test_auc = roc_auc_score(y_te, test_proba)
+    # Final model on the full dataset purely for feature importances
+    final_model = RandomForestClassifier(**rf_kwargs)
+    final_model.fit(X, y)
+    importances = pd.Series(final_model.feature_importances_, index=feature_cols).sort_values()
 
-    # 3-fold OOF: generates probabilities and fold AUCs in one pass (no extra cv_score call)
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=10)
-    oof = cross_val_predict(
-        RandomForestClassifier(**rf_kwargs), X, y, cv=cv, method="predict_proba", n_jobs=-1
-    )[:, 1]
-    fold_aucs = np.array([roc_auc_score(y[te], oof[te]) for _, te in cv.split(X, y)])
-
-    importances = pd.Series(model.feature_importances_, index=feature_cols).sort_values()
-
-    test_metrics = {
-        "auc": test_auc,
-        "train_auc": train_auc,
-        "fold_aucs": fold_aucs,
-        "y_test": y_te,
-        "proba_test": test_proba,
+    metrics = {
+        "oof_auc": roc_auc_score(y, oof),
+        "mean_train_auc": float(np.mean(fold_train_aucs)),
+        "mean_test_auc": float(np.mean(fold_test_aucs)),
+        "fold_test_aucs": np.array(fold_test_aucs),
     }
 
-    return test_metrics, oof, importances
+    return metrics, oof, importances
 
 
-test_metrics, oof_probs, importances = fit_and_score(
+metrics, oof_probs, importances = fit_and_score(
     X,
     y,
     int(n_estimators),
@@ -236,9 +236,9 @@ test_metrics, oof_probs, importances = fit_and_score(
     int(min_samples_split),
 )
 
-y_pred_test = (test_metrics["proba_test"] >= threshold).astype(int)
-prec = precision_score(test_metrics["y_test"], y_pred_test, zero_division=0)
-rec = recall_score(test_metrics["y_test"], y_pred_test, zero_division=0)
+y_pred_oof = (oof_probs >= threshold).astype(int)
+prec = precision_score(y, y_pred_oof, zero_division=0)
+rec = recall_score(y, y_pred_oof, zero_division=0)
 
 features = features.assign(churn_prob=oof_probs)
 
@@ -267,9 +267,9 @@ with st.container(horizontal=True):
     )
     st.metric(
         "AUC-ROC",
-        f"{test_metrics['auc']:.3f}",
+        f"{metrics['oof_auc']:.3f}",
         border=True,
-        help="Hold-out area under the ROC curve. 0.5 = random, 1.0 = perfect.",
+        help="Area under the ROC curve over 5-fold out-of-fold predictions. 0.5 = random, 1.0 = perfect.",
     )
     st.metric(
         "Precision",
@@ -284,20 +284,21 @@ with st.container(horizontal=True):
         help="Of customers who actually churn, how many does the model catch.",
     )
 
-overfit_gap = test_metrics["train_auc"] - test_metrics["auc"]
-fold_std = float(test_metrics["fold_aucs"].std())
+overfit_gap = metrics["mean_train_auc"] - metrics["mean_test_auc"]
+fold_std = float(metrics["fold_test_aucs"].std())
 
 st.caption(
-    f"Train AUC: **{test_metrics['train_auc']:.3f}**  ·  "
-    f"Test AUC: **{test_metrics['auc']:.3f}**  ·  "
+    f"Mean train AUC: **{metrics['mean_train_auc']:.3f}**  ·  "
+    f"Mean test AUC: **{metrics['mean_test_auc']:.3f}**  ·  "
     f"Gap: **{overfit_gap:+.3f}**  ·  "
-    f"CV fold std: **{fold_std:.3f}**"
+    f"CV fold std: **{fold_std:.3f}**  ·  "
+    f"All numbers from the same 5-fold split."
 )
 
 if overfit_gap > 0.08:
     st.warning(
-        f"Warning: Train AUC ({test_metrics['train_auc']:.3f}) is notably higher than "
-        f"test AUC ({test_metrics['auc']:.3f}): the model may be overfitting. "
+        f"Warning: Mean train AUC ({metrics['mean_train_auc']:.3f}) is notably higher than "
+        f"mean test AUC ({metrics['mean_test_auc']:.3f}): the model may be overfitting. "
         f"Try reducing *max tree depth* or increasing *min samples to split*."
     )
 
@@ -340,18 +341,16 @@ with left:
     st.plotly_chart(fig_imp, width="stretch")
 
 with right:
-    fpr, tpr, _ = roc_curve(test_metrics["y_test"], test_metrics["proba_test"])
-    prec_curve, rec_curve, _ = precision_recall_curve(
-        test_metrics["y_test"], test_metrics["proba_test"]
-    )
+    fpr, tpr, _ = roc_curve(y, oof_probs)
+    prec_curve, rec_curve, _ = precision_recall_curve(y, oof_probs)
     pr_auc = auc(rec_curve, prec_curve)
 
     fig_roc = make_subplots(
         rows=1,
         cols=2,
         subplot_titles=(
-            "ROC (hold-out 20%)",
-            "Precision-Recall (hold-out 20%)",
+            "ROC (out-of-fold)",
+            "Precision-Recall (out-of-fold)",
         ),
         horizontal_spacing=0.1,
     )
@@ -360,7 +359,7 @@ with right:
             x=fpr,
             y=tpr,
             mode="lines",
-            name=f"ROC (AUC={test_metrics['auc']:.3f})",
+            name=f"ROC (AUC={metrics['oof_auc']:.3f})",
             line=dict(color=CHART_COLORWAY[1], width=2.5),
         ),
         row=1,
@@ -413,7 +412,7 @@ with right:
     st.plotly_chart(fig_roc, width="stretch")
 
 # Confusion matrix
-cm = confusion_matrix(test_metrics["y_test"], y_pred_test, labels=[0, 1])
+cm = confusion_matrix(y, y_pred_oof, labels=[0, 1])
 cm_labels = ["Retained", "Churned"]
 fig_cm = px.imshow(
     cm,
@@ -421,7 +420,7 @@ fig_cm = px.imshow(
     y=[f"Actual: {label}" for label in cm_labels],
     color_continuous_scale=COLOR_SCALE_EXPECTED_PURCHASES,
     text_auto=True,
-    title=f"Confusion Matrix @ threshold {threshold:.2f} (held-out 20%)",
+    title=f"Confusion Matrix @ threshold {threshold:.2f} (out-of-fold)",
     aspect="equal",
 )
 fig_cm.update_layout(dragmode=False)
