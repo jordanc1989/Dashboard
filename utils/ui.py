@@ -20,9 +20,6 @@ summary {
     font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
-/* Page title: consistent letter-spacing and tight line-height across all pages.
-   Streamlit renders st.title() as a sibling component, not a child of the
-   injected page-header-block div, so target the Streamlit heading wrapper. */
 [data-testid="stHeadingWithActionElements"] h1 {
     letter-spacing: -0.018em !important;
     line-height: 1.08 !important;
@@ -101,13 +98,11 @@ div.section-header .section-title {
     line-height: 1.15 !important;
 }
 
-/* Expander chrome: softer surface, suppress default shadow.
-   Border and border-radius are owned by the theme (baseRadius 0.75rem) on
-   the inner <details> element — adding our own border here creates a double
-   border with mismatched corner radii, so we leave those to the theme. */
 [data-testid="stExpander"] {
-    background: rgba(253,253,248,0.5);
     box-shadow: none !important;
+}
+[data-testid="stExpander"] details {
+    background: rgba(253,253,248,0.5);
 }
 [data-testid="stExpander"] summary {
     font-size: 0.92rem;
