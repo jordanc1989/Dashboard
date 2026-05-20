@@ -15,6 +15,13 @@ st.set_page_config(
     layout="wide"
 )
 
+# Inject shared chrome CSS as the first command on every page. With
+# st.navigation, this top-level code runs before each page body, so the
+# <style> element mounts before any content paints — without this, the page
+# first renders with only the native config.toml theme and then visibly
+# repaints to the custom tints (a flash of unstyled content).
+inject_page_chrome()
+
 st.logo("static/jordan_cheney_logo_dark.png", size="large")
 
 PAGE_CARDS = [
@@ -28,7 +35,6 @@ PAGE_CARDS = [
 
 def _render_hero(df: pd.DataFrame) -> None:
     """Editorial hero for the home page: eyebrow, title, tagline, dataset meta."""
-    inject_page_chrome()
     st.html('<div class="page-header-block page-hero-block">')
 
     st.title("Customer analytics dashboard", anchor=False)

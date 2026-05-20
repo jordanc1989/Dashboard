@@ -263,8 +263,10 @@ def render_page_header(
     """Consistent eyebrow -> title -> lede -> meta header used on every page.
 
     Pass ``lede`` to override the canonical page lede from ``PAGE_META``.
+
+    Chrome CSS is injected once at the top of ``app.py`` (before any page
+    body), so this helper no longer re-injects it.
     """
-    inject_page_chrome()
     meta = PAGE_META[page_key]
 
     st.html('<div class="page-header-block">')
@@ -289,7 +291,6 @@ def render_page_header(
 
 def render_dq_grid(items: list[tuple[str, str]]) -> None:
     """Render a two-column definition list for data-quality / summary blocks."""
-    inject_page_chrome()
     rows = "".join(
         f"<dt>{label}</dt><dd>{value}</dd>" for label, value in items
     )
@@ -301,7 +302,6 @@ def section(title: str, eyebrow: str | None = None) -> None:
 
     Replaces ``st.subheader`` where a stronger two-line rhythm is useful.
     """
-    inject_page_chrome()
     eyebrow_html = f'<span class="section-eyebrow">{eyebrow}</span>' if eyebrow else ""
     st.html(
         f'<div class="section-header">{eyebrow_html}'
