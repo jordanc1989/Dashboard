@@ -1,6 +1,6 @@
 # Customer Analytics Dashboard
 
-![Python](https://img.shields.io/badge/Python-3.14-3776AB?logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.57+-FF4B4B?logo=streamlit&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8+-F7931E?logo=scikitlearn&logoColor=white)
 ![pymc-marketing](https://img.shields.io/badge/pymc--marketing-0.19+-2980B9)
@@ -26,7 +26,7 @@ The app includes:
 
 ## Setup
 
-Requires **Python 3.14+**.
+Requires **Python 3.13+**.
 
 ### 1) Install dependencies
 
