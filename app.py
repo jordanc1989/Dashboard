@@ -22,7 +22,9 @@ st.set_page_config(
 # repaints to the custom tints (a flash of unstyled content).
 inject_page_chrome()
 
-st.logo("static/jordan_cheney_logo_dark.png", size="large")
+SHOW_LOGO = False
+if SHOW_LOGO:
+    st.logo("static/jordan_cheney_logo_dark.png", size="large")
 
 PAGE_CARDS = [
     ("overview", "app_pages/1_Overview.py"),
