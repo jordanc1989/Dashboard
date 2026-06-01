@@ -6,3 +6,4 @@ __pycache__/
 .claude/
 .python-version
 .venv/
+data/online_retail_II.csv
