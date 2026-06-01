@@ -222,10 +222,10 @@ def sarima_forecast(fitted, n, alpha=0.1):
 
 @st.cache_resource(show_spinner="Fitting Theta model...")
 def fit_theta(y: pd.Series, period: int):
-    deseasonalise = period >= 2 and len(y) >= 2 * period
+    deseasonalize = period >= 2 and len(y) >= 2 * period
     kwargs = {}
-    kwargs["deseasonalise"] = deseasonalise
-    if deseasonalise:
+    kwargs["deseasonalize"] = deseasonalize
+    if deseasonalize:
         kwargs["period"] = period
         if (y <= 0).any():
             kwargs["method"] = "additive"  # Multiplicative seasonality is undefined for non-positive values.
