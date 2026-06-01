@@ -328,10 +328,13 @@ def apply_sidebar_filters(df):
                 help="Filter transactions by invoice date. RFM and cohort analyses will update accordingly.",
             )
     if len(date_range) == 2:
-        df = df[
-            (df["InvoiceDate"].dt.date >= date_range[0]) &
-            (df["InvoiceDate"].dt.date <= date_range[1])
-        ]
+        # Compare against Timestamp bounds rather than df["InvoiceDate"].dt.date,
+        # which would build a ~1M-element array of Python date objects on every
+        # rerun. The end bound is exclusive of the next day so the selected end
+        # date is included in full.
+        start = pd.Timestamp(date_range[0])
+        end = pd.Timestamp(date_range[1]) + pd.Timedelta(days=1)
+        df = df[(df["InvoiceDate"] >= start) & (df["InvoiceDate"] < end)]
     else:
         st.sidebar.caption("Pick an end date to apply range.")
     return df

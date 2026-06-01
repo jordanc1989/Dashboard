@@ -33,6 +33,7 @@ from utils.transforms import (
 )
 from utils.clustering import (
     MAX_SEGMENTS,
+    SEGMENT_PALETTE,
     ALGORITHM_LABELS,
     assign_segment_labels,
     run_clustering,
@@ -68,6 +69,7 @@ __all__ = [
     "build_churn_dataset",
     "build_clv_summary",
     "MAX_SEGMENTS",
+    "SEGMENT_PALETTE",
     "ALGORITHM_LABELS",
     "assign_segment_labels",
     "run_clustering",

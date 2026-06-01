@@ -15,7 +15,7 @@ from utils.transforms import transform_rfm
 
 MAX_SEGMENTS = 6
 
-_SEGMENT_PALETTE = [
+SEGMENT_PALETTE = [
     "#B85F3D",  # warm red-brown — best
     "#2E7D68",  # teal
     "#7A52B3",  # purple
@@ -77,7 +77,7 @@ def assign_segment_labels(rfm):
         label_list = [f"Tier {i + 1}: {lbl}" for i, lbl in enumerate(label_list)]
 
     label_map = dict(zip(ranked, label_list))
-    color_map = {lbl: _SEGMENT_PALETTE[i % len(_SEGMENT_PALETTE)] for i, lbl in enumerate(label_list)}
+    color_map = {lbl: SEGMENT_PALETTE[i % len(SEGMENT_PALETTE)] for i, lbl in enumerate(label_list)}
     return rfm["Cluster"].map(label_map), color_map, label_list
 
 

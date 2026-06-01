@@ -1,4 +1,5 @@
 import hashlib
+import os
 import warnings
 import streamlit as st
 import pandas as pd
@@ -21,6 +22,12 @@ from utils import (
 
 WEEKS_PER_MONTH = 4.345  # 365.25 / 12 / 7
 DEFAULT_MAX_CUSTOMERS_FOR_CLV = 2500
+
+# MCMC sampling (pymc/pytensor) is the one path that can still blow past the
+# ~1 GB Streamlit Community Cloud limit. Keep it off unless explicitly enabled
+# via the environment, so a cloud visitor can't OOM the app; it stays available
+# locally with `ENABLE_MCMC=1`.
+MCMC_ENABLED = os.environ.get("ENABLE_MCMC", "").lower() in ("1", "true", "yes")
 
 def _df_hash(df: pd.DataFrame) -> str:
     return hashlib.md5(pd.util.hash_pandas_object(df).values).hexdigest()
@@ -96,7 +103,12 @@ with st.container(border=True):
             use_mcmc = st.toggle(
                 "MCMC sampling",
                 value=False,
-                help="Full Bayesian inference. Adds 90% credible intervals to every prediction, but can consume substantial RAM.",
+                disabled=not MCMC_ENABLED,
+                help=(
+                    "Full Bayesian inference. Adds 90% credible intervals to every prediction, but can consume substantial RAM."
+                    if MCMC_ENABLED
+                    else "Disabled on this deployment to protect memory. Set ENABLE_MCMC=1 to enable MCMC sampling locally."
+                ),
             )
             max_customers_for_fit = st.slider(
                 "Max customers to model",
@@ -143,40 +155,36 @@ if winsorise_monetary:
     gg_data["monetary_value"] = gg_data["monetary_value"].clip(upper=cap)
 
 
-@st.cache_resource(max_entries=4)
-def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
-    bgm = BetaGeoModel()
+def _fit_clv_model(model, method: str):
+    """Fit a pymc-marketing CLV model in place, then thin MCMC draws.
+
+    Shared by the BG/NBD and Gamma-Gamma fits, which differ only in model class.
+    Thinning after MCMC reduces memory / prediction cost at the expense of
+    slightly less smooth posteriors.
+    """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        fit_kwargs = {"method": method, "data": _data}
+        fit_kwargs = {"method": method}  # data is supplied via the model constructor
         if method == "mcmc":
             try:
                 import nutpie  # noqa: F401
                 fit_kwargs["nuts_sampler"] = "nutpie"
             except ImportError:
                 pass
-        bgm.fit(**fit_kwargs)
+        model.fit(**fit_kwargs)
     if method == "mcmc":
-        bgm = bgm.thin_fit_result(keep_every=2)  # Reduces memory / prediction cost at the expense of slightly less smooth posteriors.
-    return bgm
+        model = model.thin_fit_result(keep_every=2)
+    return model
+
+
+@st.cache_resource(max_entries=4)
+def fit_bgnbd(data_hash: str, method: str, _data: pd.DataFrame):
+    return _fit_clv_model(BetaGeoModel(data=_data), method)
 
 
 @st.cache_resource(max_entries=4)
 def fit_gg(data_hash: str, method: str, _data: pd.DataFrame):
-    ggm = GammaGammaModel()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        fit_kwargs = {"method": method, "data": _data}
-        if method == "mcmc":
-            try:
-                import nutpie  # noqa: F401
-                fit_kwargs["nuts_sampler"] = "nutpie"
-            except ImportError:
-                pass
-        ggm.fit(**fit_kwargs)
-    if method == "mcmc":
-        ggm = ggm.thin_fit_result(keep_every=2)
-    return ggm
+    return _fit_clv_model(GammaGammaModel(data=_data), method)
 
 
 spinner_msg = (

@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 from utils.data import load_cancels
 
 
-@st.cache_data
+@st.cache_data(max_entries=16)
 def build_rfm(df):
     snapshot_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
     rfm = df.groupby("Customer ID").agg(

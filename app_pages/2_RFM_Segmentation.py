@@ -21,8 +21,8 @@ from utils import (
     NEUTRAL_GRID,
     NEUTRAL_RADAR_GRID,
     finalise_fig,
+    SEGMENT_PALETTE,
 )
-from utils.clustering import _SEGMENT_PALETTE
 
 
 def _hex_to_rgba(hex_c, alpha):
@@ -440,7 +440,7 @@ else:
                 if seg != "Outliers" and seg not in shared_segments:
                     shared_segments.append(seg)
         shared_color_map = {
-            seg: _SEGMENT_PALETTE[i % len(_SEGMENT_PALETTE)]
+            seg: SEGMENT_PALETTE[i % len(SEGMENT_PALETTE)]
             for i, seg in enumerate(shared_segments)
         }
         shared_color_map["Outliers"] = NEUTRAL_GRID

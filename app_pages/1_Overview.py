@@ -19,26 +19,50 @@ st.set_page_config(
     layout="wide"
 )
 
-df = load_data()
-df = apply_sidebar_filters(df)
+
+@st.cache_data(max_entries=8)
+def _top_products(data, n=10):
+    """Top products by revenue, labelled by their most common description.
+
+    Cached because the per-StockCode mode() lambda is the slowest step on the
+    page and only changes when the sidebar filter does.
+    """
+    return (
+        data.groupby("StockCode")
+        .agg(
+            Revenue=("Revenue", "sum"),
+            Description=(
+                "Description",
+                lambda s: s.dropna().mode().iloc[0] if not s.dropna().empty else "",
+            ),
+        )
+        .sort_values("Revenue", ascending=False)
+        .head(n)
+        .reset_index()
+    )
+
+df_full = load_data()
+df = apply_sidebar_filters(df_full)
 
 render_page_header("overview", df)
 
-# Data quality summary
+# Data quality summary describes the cleaning of the whole dataset, so it reads
+# from the unfiltered frame — using the sidebar-filtered `df` here would report
+# the filter as if it were cleaning (e.g. "95% of rows removed" for one country).
 with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
-    removed = raw_count - len(df)
-    removed_pct = (1 - len(df) / raw_count) * 100
-    guest_rows = int(df["is_guest"].sum())
-    guest_pct = df["is_guest"].mean() * 100
+    removed = raw_count - len(df_full)
+    removed_pct = (1 - len(df_full) / raw_count) * 100
+    guest_rows = int(df_full["is_guest"].sum())
+    guest_pct = df_full["is_guest"].mean() * 100
     render_dq_grid([
         ("Raw rows", f"{raw_count:,}"),
-        ("After cleaning", f"{len(df):,}"),
+        ("After cleaning", f"{len(df_full):,}"),
         ("Rows removed", f"{removed:,} ({removed_pct:.1f}%)"),
-        ("Unique customers", f"{df['Customer ID'].nunique():,}"),
-        ("Date range", f"{df['InvoiceDate'].min():%d %b %Y} - {df['InvoiceDate'].max():%d %b %Y}"),
+        ("Unique customers", f"{df_full['Customer ID'].nunique():,}"),
+        ("Date range", f"{df_full['InvoiceDate'].min():%d %b %Y} - {df_full['InvoiceDate'].max():%d %b %Y}"),
         ("Guest checkouts", f"{guest_rows:,} ({guest_pct:.1f}%)"),
-        ("Registered customers", f"{(~df['is_guest']).sum():,}"),
+        ("Registered customers", f"{(~df_full['is_guest']).sum():,}"),
     ])
     st.caption(
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
@@ -153,19 +177,7 @@ with col_right:
     # Group by StockCode (stable product identity) and use the most common
     # description as the display label — Description has typos/casing variants
     # that would otherwise split or merge SKUs incorrectly.
-    top_products = (
-        df.groupby("StockCode")
-        .agg(
-            Revenue=("Revenue", "sum"),
-            Description=(
-                "Description",
-                lambda s: s.dropna().mode().iloc[0] if not s.dropna().empty else "",
-            ),
-        )
-        .sort_values("Revenue", ascending=False)
-        .head(10)
-        .reset_index()
-    )
+    top_products = _top_products(df)
     fig_prod = px.bar(
         top_products, x="Revenue", y="Description",
         orientation="h", title="Top 10 products by revenue",

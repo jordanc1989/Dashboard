@@ -200,6 +200,7 @@ def fit_and_score(
     oof = np.zeros(len(y), dtype="float64")
     fold_test_aucs = []
     fold_train_aucs = []
+    fold_importances = []
 
     for train_idx, test_idx in cv.split(X, y):
         fold_model = RandomForestClassifier(**rf_kwargs)
@@ -209,11 +210,13 @@ def fit_and_score(
         oof[test_idx] = test_proba
         fold_train_aucs.append(roc_auc_score(y[train_idx], train_proba))
         fold_test_aucs.append(roc_auc_score(y[test_idx], test_proba))
+        fold_importances.append(fold_model.feature_importances_)
 
-    # Final model on the full dataset purely for feature importances
-    final_model = RandomForestClassifier(**rf_kwargs)
-    final_model.fit(X, y)
-    importances = pd.Series(final_model.feature_importances_, index=feature_cols).sort_values()
+    # Average the per-fold Gini importances rather than training a sixth model
+    # on the full data — same information, one fewer forest fit per cache miss.
+    importances = pd.Series(
+        np.mean(fold_importances, axis=0), index=feature_cols
+    ).sort_values()
 
     metrics = {
         "oof_auc": roc_auc_score(y, oof),
