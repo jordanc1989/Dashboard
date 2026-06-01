@@ -276,7 +276,7 @@ summary = summary.reset_index()  # restore customer_id as a plain column
 st.space("small")
 section("Headline CLV", eyebrow=f"Next {horizon_months}-month horizon")
 
-# Restrict headline aggregates to modelled customers — the rest are zero-filled
+# Restrict headline aggregates to modelled customers- the rest are zero-filled
 # placeholders, not predictions, and summing over them silently understates totals.
 n_modelled = len(clv)
 total_clv = float(clv.sum())
@@ -382,7 +382,7 @@ def run_holdout_validation(data_hash: str, _df: pd.DataFrame) -> tuple | None:
 st.space("small")
 section("Out-of-sample validation", eyebrow="75 / 25 time split")
 
-# Validate on the same customer population the page model is fit against —
+# Validate on the same customer population the page model is fit against-
 # otherwise the metrics describe a different model from the one being scored.
 modelled_ids = set(fit_summary["customer_id"].astype(str))
 df_for_validation = df_customers[

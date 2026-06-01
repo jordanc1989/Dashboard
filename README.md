@@ -21,7 +21,7 @@ The app includes:
 - **RFM Segmentation**: K-Means baseline with elbow/silhouette previews and R/F/M-derived segment labels, plus a Compare tab benchmarking Gaussian mixture, Agglomerative and HDBSCAN side by side
 - **Churn Prediction**: random forest classification (5-fold stratified CV) with threshold tuning, confusion matrix and precision-recall / ROC curves
 - **CLV Prediction**: BG/NBD + Gamma-Gamma modelling via `pymc-marketing`
-- **Revenue Forecasting**: SARIMA and Theta-method models (`statsmodels`) with holdout backtest metrics and 90% confidence intervals
+- **Revenue Forecasting**: SARIMA, Theta, ETS (Holt-Winters) and a seasonal-naive model (`statsmodels`) with holdout backtest metrics and configurable prediction intervals. Every model is scored against the seasonal-naive baseline ("same period last year"), so the backtest shows whether it actually beats the obvious benchmark. Short backtest windows (< 2 seasonal cycles) reconstruct seasonality from training data only, so the holdout forecast stays seasonal without look-ahead
 
 ## Setup
 

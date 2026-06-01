@@ -483,7 +483,7 @@ else:
                 "Outlier %": "{:.1f}%",
                 "Smallest segment %": "{:.1f}%",
                 "Fit time (s)": "{:.2f}",
-            }, na_rep="—")
+            }, na_rep="-")
         )
         st.dataframe(styled, width="stretch", hide_index=True)
 
@@ -548,7 +548,7 @@ else:
         pc1_pct, pc2_pct = variance[0] * 100, variance[1] * 100
         st.caption(
             f"PC1 ({pc1_pct:.1f}% var) · PC2 ({pc2_pct:.1f}% var) · "
-            f"{pc1_pct + pc2_pct:.1f}% total — all four scatters share the same "
+            f"{pc1_pct + pc2_pct:.1f}% total - all four scatters share the same "
             "projection so cluster shapes are directly comparable."
         )
 
@@ -577,7 +577,7 @@ else:
                 legend=dict(font=dict(size=10)),
             )
 
-            # Convex-hull segment dividers — outline + light fill per segment.
+            # Convex-hull segment dividers - outline + light fill per segment.
             # Skip the "Outliers" bucket (HDBSCAN noise has no meaningful boundary).
             for seg in ordered:
                 if seg == "Outliers":
@@ -642,7 +642,7 @@ else:
         section("RFM profile heatmap", eyebrow="Mean R/F/M per (model, segment)")
         st.caption(
             "Values are z-scored per RFM dimension across all rows so colour is comparable "
-            "across columns. Recency is *not* inverted here — darker = more days since last "
+            "across columns. Recency is *not* inverted here - darker = more days since last "
             "purchase (less recent)."
         )
 
@@ -694,7 +694,7 @@ else:
         st.caption(
             "Revenue share = sum of Monetary within each segment ÷ total Monetary for that "
             "model. A balanced model spreads revenue across segments; a useful model often "
-            "concentrates it — a small VIP segment carrying a big share of revenue."
+            "concentrates it - a small VIP segment carrying a big share of revenue."
         )
 
         revenue_rows = []
@@ -754,7 +754,7 @@ else:
                 ))
                 p_low = float((conf_values < 0.6).mean() * 100)
                 fig_conf.update_layout(
-                    title=f"{ALGORITHM_LABELS[code]} — {p_low:.1f}% below 0.6",
+                    title=f"{ALGORITHM_LABELS[code]} - {p_low:.1f}% below 0.6",
                     xaxis_title="Confidence",
                     yaxis_title="Customers",
                     xaxis=dict(range=[0, 1]),
@@ -800,6 +800,6 @@ else:
         styled_diff = (
             diff_pivot.style
             .background_gradient(cmap="Greens", axis=None)
-            .format("{:,.0f}", na_rep="—")
+            .format("{:,.0f}", na_rep="-")
         )
         st.dataframe(styled_diff, width="stretch")

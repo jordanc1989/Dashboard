@@ -47,7 +47,7 @@ df = apply_sidebar_filters(df_full)
 render_page_header("overview", df)
 
 # Data quality summary describes the cleaning of the whole dataset, so it reads
-# from the unfiltered frame — using the sidebar-filtered `df` here would report
+# from the unfiltered frame - using the sidebar-filtered `df` here would report
 # the filter as if it were cleaning (e.g. "95% of rows removed" for one country).
 with st.expander("Data quality summary", icon=":material/fact_check:"):
     raw_count = load_raw_count()
@@ -68,7 +68,7 @@ with st.expander("Data quality summary", icon=":material/fact_check:"):
         f"Note: {guest_pct:.1f}% of transactions are guest checkouts (no Customer ID). "
         "Revenue figures include all transactions. RFM segmentation uses registered customers only."
     )
-# KPI row — restricted to the trailing 12 months of the filtered range so the
+# KPI row: restricted to the trailing 12 months of the filtered range so the
 # eyebrow, headline values and sparklines all describe the same window.
 max_date = df["InvoiceDate"].max()
 t12m_start = max_date - pd.DateOffset(months=12)
@@ -81,7 +81,7 @@ monthly_kpi = df_t12.groupby("Month").agg(
     customers=("Customer ID", "nunique"),
     orders=("Invoice", "nunique"),
 ).reset_index()
-# AOV: mean of invoice totals within each month — matches the headline definition.
+# AOV: mean of invoice totals within each month: matches the headline definition.
 monthly_aov = (
     df_t12.groupby(["Month", "Invoice"])["Revenue"].sum()
     .groupby(level="Month").mean()
@@ -175,7 +175,7 @@ with col_left:
 
 with col_right:
     # Group by StockCode (stable product identity) and use the most common
-    # description as the display label — Description has typos/casing variants
+    # description as the display label - Description has typos/casing variants
     # that would otherwise split or merge SKUs incorrectly.
     top_products = _top_products(df)
     fig_prod = px.bar(

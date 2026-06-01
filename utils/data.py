@@ -56,7 +56,7 @@ def _read_raw_csv():
     """Single source of truth for the raw CSV read.
 
     Keeps the high-cardinality identifier columns as the pandas ``string`` dtype
-    rather than coercing to object via ``astype(str)`` — object strings cost
+    rather than coercing to object via ``astype(str)`` - object strings cost
     several times more memory per row on pandas < 3.0.
     """
     df = pd.read_csv(
@@ -131,7 +131,7 @@ def _build_clean_orders():
     df["Month"] = df["InvoiceDate"].dt.to_period("M").astype("string")
 
     # Description repeats heavily across rows (~5k unique over ~1M rows) and is
-    # only ever a display label, never a join/group key — storing it as a
+    # only ever a display label, never a join/group key - storing it as a
     # category cuts its footprint from ~35 MB to ~2 MB.
     df["Description"] = df["Description"].astype("category")
     df["Invoice"] = df["Invoice"].astype("string")

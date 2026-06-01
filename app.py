@@ -17,7 +17,7 @@ st.set_page_config(
 
 # Inject shared chrome CSS as the first command on every page. With
 # st.navigation, this top-level code runs before each page body, so the
-# <style> element mounts before any content paints — without this, the page
+# <style> element mounts before any content paints, without this, the page
 # first renders with only the native config.toml theme and then visibly
 # repaints to the custom tints (a flash of unstyled content).
 inject_page_chrome()

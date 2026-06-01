@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
+from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 from statsmodels.tsa.forecasting.theta import ThetaModel
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 
@@ -54,8 +55,13 @@ with st.container(border=True):
     with c2:
         model_name = st.selectbox(
             "Model",
-            ["SARIMA", "Theta"],
+            ["SARIMA", "Theta", "ETS", "Seasonal naive"],
             index=0,
+            help=(
+                "SARIMA and Theta are the workhorses; ETS (Holt-Winters) adds a "
+                "second seasonal model; Seasonal naive ('same period last year') is "
+                "the baseline every other model is scored against."
+            ),
         )
 
     with c3:
@@ -166,7 +172,7 @@ with st.expander(
             "Seasonal differencing is fixed to 0 for this dataset (~2 years), because "
             "that is not enough history for stable seasonal differencing."
         )
-    else:
+    elif model_name == "Theta":
         theta_param = st.slider(
             "θ (theta)",
             min_value=1.0,
@@ -181,23 +187,56 @@ with st.expander(
         )
         theta_period = default_season
         if holdout > 0 and len(train) < 2 * theta_period:
-            max_holdout = max(0, len(series) - 2 * theta_period)
-            st.warning(
-                f"Training window ({len(train)} periods) is shorter than 2 x "
-                f"seasonal period ({2 * theta_period}), so the **holdout** forecast "
-                f"falls back to trend-only (hence the flat line). The **future** "
-                f"forecast still uses seasonality because it fits on the full "
-                f"{len(series)} periods.\n\nFor a like-for-like backtest, "
-                f"reduce the holdout slider to <= {max_holdout}. "
-                f"(Theta seasonal period is automatic: {theta_period} for {freq_label.lower()} data.)"
+            st.info(
+                f"Training window ({len(train)} periods) is shorter than two full "
+                f"seasonal cycles ({2 * theta_period}), so the model's built-in "
+                f"deseasonalisation can't run on the backtest. The **holdout** forecast "
+                f"reconstructs the seasonal shape from training-period data only "
+                f"(no look-ahead); the **future** forecast fits the full "
+                f"{len(series)} periods and uses the model's native deseasonalisation."
             )
         st.caption(
             "The Theta method (Assimakopoulos & Nikolopoulos, 2000) was a top "
             "performer in the M3 forecasting competition and combines simple "
             "exponential smoothing with drift on two decomposed 'theta-lines' "
             "and is fast, robust and effective on business data. "
-            f"Deseasonalisation uses the model's automatic mode with a fixed seasonal period "
-            f"{theta_period} ({'weekly yearly' if freq_code == 'W' else 'monthly yearly'})."
+            f"The future forecast deseasonalises with the model's automatic mode at a fixed "
+            f"seasonal period of {theta_period} "
+            f"({'weekly-yearly' if freq_code == 'W' else 'monthly-yearly'}); short backtest "
+            f"windows reconstruct the seasonal shape from training data only."
+        )
+    elif model_name == "ETS":
+        ets_damped = st.toggle(
+            "Damped trend",
+            value=False,
+            help="Flattens the trend over the horizon instead of extrapolating it "
+            "linearly. Safer for longer horizons; often improves accuracy on "
+            "business series that plateau.",
+        )
+        if holdout > 0 and len(train) < 2 * default_season:
+            st.info(
+                f"Training window ({len(train)} periods) is shorter than two full "
+                f"seasonal cycles ({2 * default_season}), so Holt-Winters can't fit its "
+                f"seasonal component on the backtest. The **holdout** forecast reconstructs "
+                f"the seasonal shape from training-period data only (no look-ahead); the "
+                f"**future** forecast fits the full {len(series)} periods with native "
+                f"seasonality."
+            )
+        st.caption(
+            "ETS (error-trend-seasonal) is additive Holt-Winters exponential "
+            "smoothing: it tracks level, a linear (optionally damped) trend and an "
+            f"additive seasonal cycle of {default_season} "
+            f"({'weekly-yearly' if freq_code == 'W' else 'monthly-yearly'}). A natural "
+            "companion to Theta, with native prediction intervals."
+        )
+    else:  # Seasonal naive
+        st.caption(
+            "Seasonal naive forecasts each period as the same period one cycle ago "
+            f"('same {'week' if freq_code == 'W' else 'month'} last year', period "
+            f"{default_season}), carried forward. With strong yearly seasonality this is "
+            "a deliberately simple but hard-to-beat **baseline** — every other model's "
+            "backtest is reported against it. Prediction intervals widen with the square "
+            "root of the horizon from the in-sample seasonal-difference spread."
         )
 
 
@@ -249,6 +288,139 @@ def theta_forecast(fitted, n, theta: float, alpha=0.1):
     return mean, lo, hi
 
 
+def _seasonal_positions(index, freq_code):
+    """Within-cycle position per timestamp: ISO week (weekly) or month (monthly)."""
+    if freq_code == "W":
+        return index.isocalendar().week.to_numpy()
+    return index.month.to_numpy()
+
+
+def _seasonal_factors(train, freq_code):
+    """Additive per-cycle seasonal deviations, estimated from training data only."""
+    pos = _seasonal_positions(train.index, freq_code)
+    seasonal = (
+        pd.Series(train.to_numpy() - train.mean(), index=pos)
+        .groupby(level=0)
+        .mean()
+    )
+    seasonal = seasonal - seasonal.mean()  # centre: keep only the seasonal shape
+    return {int(k): float(v) for k, v in seasonal.items()}
+
+
+def _seasonal_reconstruct(train, freq_code, n, future_index, trend_forecast):
+    """Deseasonalise (training-only additive factors), forecast the trend, reseasonalise.
+
+    `trend_forecast(deseason_series, n)` must return (mean, lo, hi) for the
+    deseasonalised series. Used when a window is too short for a model's native
+    deseasonalisation (< 2 full cycles). Additive (not multiplicative) so
+    zero-revenue periods don't blow the deseasonalised series up; no look-ahead,
+    since the seasonal factors come from the training window only.
+    """
+    factors = _seasonal_factors(train, freq_code)
+    s_in = np.array(
+        [factors.get(int(p), 0.0) for p in _seasonal_positions(train.index, freq_code)]
+    )
+    deseason = pd.Series(train.to_numpy() - s_in, index=train.index)
+    base_mean, base_lo, base_hi = trend_forecast(deseason, n)
+    s_out = np.array(
+        [factors.get(int(p), 0.0) for p in _seasonal_positions(future_index, freq_code)]
+    )
+    return (
+        pd.Series(np.asarray(base_mean) + s_out, index=future_index),
+        pd.Series(np.asarray(base_lo) + s_out, index=future_index),
+        pd.Series(np.asarray(base_hi) + s_out, index=future_index),
+    )
+
+
+def theta_seasonal_backtest(train, freq_code, theta: float, n, future_index, alpha=0.1):
+    """Theta backtest with a training-only seasonal reconstruction.
+
+    statsmodels can only deseasonalise a window spanning >= 2 full cycles, which a
+    holdout split on this ~2-year series drops below — leaving a flat, trend-only
+    backtest. Reconstruct seasonality from training data instead so the backtest
+    tracks the cycle (see `_seasonal_reconstruct`).
+    """
+    def trend_forecast(deseason, k):
+        fitted = ThetaModel(deseason, deseasonalize=False).fit(disp=False)
+        return theta_forecast(fitted, k, theta, alpha=alpha)
+
+    return _seasonal_reconstruct(train, freq_code, n, future_index, trend_forecast)
+
+
+def seasonal_naive_forecast(y, m, n, future_index, alpha=0.1):
+    """'Same period one cycle ago', carried forward.
+
+    The point forecast repeats the most recent seasonal cycle. Prediction
+    intervals widen with sqrt(k), k = cycles ahead, scaled by the in-sample
+    seasonal-difference spread (Hyndman & Athanasopoulos, FPP).
+    """
+    from scipy.stats import norm
+
+    vals = y.to_numpy()
+    last_cycle = vals[-m:]
+    fc = np.array([last_cycle[(h - 1) % m] for h in range(1, n + 1)])
+
+    diffs = vals[m:] - vals[:-m]
+    sigma = float(np.std(diffs, ddof=1)) if len(diffs) > 1 else 0.0
+    z = float(norm.ppf(1 - alpha / 2))
+    k = np.floor((np.arange(1, n + 1) - 1) / m) + 1
+    band = z * sigma * np.sqrt(k)
+    return (
+        pd.Series(fc, index=future_index),
+        pd.Series(fc - band, index=future_index),
+        pd.Series(fc + band, index=future_index),
+    )
+
+
+@st.cache_resource(show_spinner="Fitting ETS...")
+def fit_ets_native(y: pd.Series, m: int, damped: bool):
+    """Holt-Winters with additive trend + additive seasonality (needs >= 2 cycles)."""
+    return ETSModel(
+        y,
+        error="add",
+        trend="add",
+        damped_trend=damped,
+        seasonal="add",
+        seasonal_periods=m,
+        initialization_method="estimated",
+    ).fit(disp=False)
+
+
+def ets_forecast(y, freq_code, m, n, future_index, alpha=0.1, damped=False):
+    """ETS (Holt-Winters) forecast.
+
+    Uses native additive seasonality when the window covers >= 2 cycles; otherwise
+    a training-only seasonal reconstruction around a linear/damped ETS trend.
+    Returns (mean, lo, hi, fitted_or_None) — the fit is None on the reconstruction
+    path (no single seasonal model to read diagnostics from).
+    """
+    if m >= 2 and len(y) >= 2 * m:
+        fit = fit_ets_native(y, m, damped)
+        sf = fit.get_prediction(start=len(y), end=len(y) + n - 1).summary_frame(alpha=alpha)
+        return (
+            pd.Series(sf["mean"].to_numpy(), index=future_index),
+            pd.Series(sf["pi_lower"].to_numpy(), index=future_index),
+            pd.Series(sf["pi_upper"].to_numpy(), index=future_index),
+            fit,
+        )
+
+    def trend_forecast(deseason, k):
+        fit = ETSModel(
+            deseason,
+            error="add",
+            trend="add",
+            damped_trend=damped,
+            initialization_method="estimated",
+        ).fit(disp=False)
+        sf = fit.get_prediction(
+            start=len(deseason), end=len(deseason) + k - 1
+        ).summary_frame(alpha=alpha)
+        return sf["mean"].to_numpy(), sf["pi_lower"].to_numpy(), sf["pi_upper"].to_numpy()
+
+    mean, lo, hi = _seasonal_reconstruct(y, freq_code, n, future_index, trend_forecast)
+    return mean, lo, hi, None
+
+
 def _theta_in_sample_fit(y: pd.Series, alpha: float, b0: float) -> pd.Series:
     """One-step-ahead in-sample fit using the Theta method's SES-with-drift recursion.
 
@@ -289,6 +461,16 @@ future_index = pd.date_range(
 )
 
 
+# ETS and Seasonal naive both need at least one full seasonal cycle of history.
+if model_name in ("ETS", "Seasonal naive") and len(series) <= default_season:
+    st.warning(
+        f"{model_name} needs more than one full seasonal cycle "
+        f"({default_season} periods); this selection has only {len(series)}. "
+        "Widen the date range, switch to Monthly, or use SARIMA / Theta."
+    )
+    st.stop()
+
+
 # Fit models and produce forecasts
 pred_mean = pred_lo = pred_hi = None
 backtest_mape = backtest_rmse = None
@@ -320,15 +502,23 @@ try:
             f"AIC: {full_fit.aic:.1f}  ·  BIC: {full_fit.bic:.1f}  ·  "
             f"Residual std: £{residuals.std():,.0f}"
         )
-    else:
+    elif model_name == "Theta":
         period = int(theta_period)
 
         if holdout > 0:
-            fitted_train = fit_theta(train, period)
-            pm, plo, phi = theta_forecast(fitted_train, len(test), float(theta_param), alpha=alpha)
-            pred_mean = pd.Series(np.asarray(pm), index=test.index)
-            pred_lo = pd.Series(np.asarray(plo), index=test.index)
-            pred_hi = pd.Series(np.asarray(phi), index=test.index)
+            # When the training window is too short for the model's built-in
+            # deseasonalisation (< 2 full cycles), reconstruct seasonality from
+            # training data only so the backtest isn't a flat trend-only line.
+            if period >= 2 and len(train) < 2 * period:
+                pred_mean, pred_lo, pred_hi = theta_seasonal_backtest(
+                    train, freq_code, float(theta_param), len(test), test.index, alpha=alpha
+                )
+            else:
+                fitted_train = fit_theta(train, period)
+                pm, plo, phi = theta_forecast(fitted_train, len(test), float(theta_param), alpha=alpha)
+                pred_mean = pd.Series(np.asarray(pm), index=test.index)
+                pred_lo = pd.Series(np.asarray(plo), index=test.index)
+                pred_hi = pd.Series(np.asarray(phi), index=test.index)
             backtest_mape = mape(test.values, pred_mean.values)
             backtest_rmse = rmse(test.values, pred_mean.values)
 
@@ -347,6 +537,52 @@ try:
             f"α: {alpha_est:.3f}  ·  b₀: {b0_est:.2f}  ·  θ: {float(theta_param):.1f}  ·  "
             f"Residual std: £{residuals.std():,.0f}"
         )
+    elif model_name == "ETS":
+        m = int(default_season)
+
+        if holdout > 0:
+            pred_mean, pred_lo, pred_hi, _ = ets_forecast(
+                train, freq_code, m, len(test), test.index, alpha=alpha, damped=ets_damped
+            )
+            backtest_mape = mape(test.values, pred_mean.values)
+            backtest_rmse = rmse(test.values, pred_mean.values)
+
+        future_mean, future_lo, future_hi, ets_fit = ets_forecast(
+            series, freq_code, m, horizon, future_index, alpha=alpha, damped=ets_damped
+        )
+        if ets_fit is not None:
+            residuals = pd.Series(ets_fit.resid).dropna()
+            summary_caption = (
+                f"AIC: {ets_fit.aic:.1f}  ·  "
+                f"Trend: {'damped' if ets_damped else 'linear'}  ·  "
+                f"Residual std: £{residuals.std():,.0f}"
+            )
+        else:
+            residuals = pd.Series(dtype=float)
+            summary_caption = (
+                "Seasonal shape reconstructed from a short series — native fit "
+                "diagnostics unavailable."
+            )
+    else:  # Seasonal naive
+        m = int(default_season)
+
+        if holdout > 0:
+            pred_mean, pred_lo, pred_hi = seasonal_naive_forecast(
+                train, m, len(test), test.index, alpha=alpha
+            )
+            backtest_mape = mape(test.values, pred_mean.values)
+            backtest_rmse = rmse(test.values, pred_mean.values)
+
+        future_mean, future_lo, future_hi = seasonal_naive_forecast(
+            series, m, horizon, future_index, alpha=alpha
+        )
+        # Residuals = in-sample seasonal differences (y_t - y_{t-m}).
+        seasonal_resid = series.to_numpy()[m:] - series.to_numpy()[:-m]
+        residuals = pd.Series(seasonal_resid, index=series.index[m:]).dropna()
+        summary_caption = (
+            f"Seasonal period: {m}  ·  "
+            f"Seasonal-difference residual std: £{residuals.std():,.0f}"
+        )
 except Exception as exc:
     st.error(f"Model failed to fit: {exc}")
     st.stop()
@@ -360,6 +596,17 @@ if pred_mean is not None:
     pred_mean = pred_mean.clip(lower=0)
     pred_lo = pred_lo.clip(lower=0)
     pred_hi = pred_hi.clip(lower=0)
+
+
+# Seasonal-naive benchmark — scores every model against the obvious baseline so
+# the backtest answers "does this model beat 'same period last year'?".
+naive_mape = naive_rmse = None
+_m_bench = int(default_season)
+if holdout > 0 and len(train) > _m_bench:
+    nb_mean, _, _ = seasonal_naive_forecast(train, _m_bench, len(test), test.index, alpha=alpha)
+    nb_mean = nb_mean.clip(lower=0)
+    naive_mape = mape(test.values, nb_mean.values)
+    naive_rmse = rmse(test.values, nb_mean.values)
 
 
 # KPIs
@@ -383,6 +630,23 @@ with st.container(horizontal=True):
         f"£{float(future_mean.sum()):,.0f}",
         border=True,
     )
+
+if naive_mape is not None and backtest_rmse is not None:
+    if model_name == "Seasonal naive":
+        st.caption(
+            "This **is** the seasonal-naive baseline — the reference every other "
+            "model's backtest is scored against."
+        )
+    else:
+        skill = (1 - backtest_rmse / naive_rmse) * 100 if naive_rmse else float("nan")
+        if np.isfinite(skill) and skill >= 0:
+            verdict = f"**{model_name} beats** the seasonal-naive baseline by {skill:.0f}% on RMSE"
+        else:
+            verdict = f"**{model_name} trails** the seasonal-naive baseline by {abs(skill):.0f}% on RMSE"
+        st.caption(
+            f"Benchmark — seasonal-naive ('same period last year') holdout: "
+            f"MAPE {naive_mape:.1f}%, RMSE £{naive_rmse:,.0f}. {verdict} (lower error is better)."
+        )
 
 
 # Main chart
@@ -455,7 +719,7 @@ st.plotly_chart(fig, width="stretch")
 st.caption(
     "Forecast mean and prediction band are clipped at £0 since revenue cannot be "
     "negative. If the lower band sits flush against the x-axis the underlying "
-    "Gaussian interval extends below zero — read it as 'lower bound ≈ 0', not 'tight CI'."
+    "Gaussian interval extends below zero - read it as 'lower bound ≈ 0', not 'tight CI'."
 )
 
 

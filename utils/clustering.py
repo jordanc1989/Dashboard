@@ -16,12 +16,12 @@ from utils.transforms import transform_rfm
 MAX_SEGMENTS = 6
 
 SEGMENT_PALETTE = [
-    "#B85F3D",  # warm red-brown — best
+    "#B85F3D",  # warm red-brown (best)
     "#2E7D68",  # teal
     "#7A52B3",  # purple
     "#2C78B7",  # blue
     "#B6861E",  # gold
-    "#433D37",  # dark grey-brown — worst
+    "#433D37",  # dark grey-brown (worst)
 ]
 
 ALGORITHM_LABELS = {
@@ -189,7 +189,7 @@ def run_all_algorithms(rfm_raw, n_clusters, winsorise_pct=99, min_cluster_size=3
 
 @st.cache_data(max_entries=8)
 def pca_project(X):
-    """Project the scaled RFM matrix to 2D via PCA — shared axes for all algorithms."""
+    """Project the scaled RFM matrix to 2D via PCA - shared axes for all algorithms."""
     pca = PCA(n_components=2, random_state=10)
     coords = pca.fit_transform(X)
     df = pd.DataFrame(coords, columns=["PC1", "PC2"])

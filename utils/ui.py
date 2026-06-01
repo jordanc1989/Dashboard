@@ -113,7 +113,7 @@ div.section-header .section-title {
     color: #B85F3D;
 }
 
-/* Data-quality definition list — used for summary blocks instead of a markdown table. */
+/* Data-quality definition list - used for summary blocks instead of a markdown table. */
 dl.dq-grid {
     display: grid;
     grid-template-columns: max-content 1fr;
@@ -185,7 +185,7 @@ def inject_page_chrome() -> None:
     st.markdown(_PAGE_CHROME_CSS, unsafe_allow_html=True)
 
 
-# Canonical page metadata — keeps eyebrow/icon/lede in one place so home
+# Canonical page metadata: keeps eyebrow/icon/lede in one place so home
 # cards and page headers stay in sync.
 PAGE_META: dict[str, dict[str, str]] = {
     "overview": {

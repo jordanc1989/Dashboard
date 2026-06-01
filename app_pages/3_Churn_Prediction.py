@@ -213,7 +213,7 @@ def fit_and_score(
         fold_importances.append(fold_model.feature_importances_)
 
     # Average the per-fold Gini importances rather than training a sixth model
-    # on the full data — same information, one fewer forest fit per cache miss.
+    # on the full data - same information, one fewer forest fit per cache miss.
     importances = pd.Series(
         np.mean(fold_importances, axis=0), index=feature_cols
     ).sort_values()
