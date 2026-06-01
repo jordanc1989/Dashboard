@@ -451,7 +451,9 @@ with st.expander(
             title=f"Calibration vs holdout (train to {cal_end.date()}, holdout {holdout_weeks:.0f}w)",
             xaxis_title="Mean predicted purchases",
             yaxis_title="Mean actual purchases",
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            # Legend below the plot so it never overlaps the top-left title.
+            legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5),
+            margin=dict(t=48, b=64),
         )
         finalise_fig(fig_val)
         st.plotly_chart(fig_val, width="stretch")
@@ -569,7 +571,9 @@ with st.expander(
             title=f"Predicted vs actual mean spend (train to {gg_cal_end.date()})",
             xaxis=dict(title="Predicted AOV (£)", tickprefix="£", tickformat=","),
             yaxis=dict(title="Actual holdout mean spend (£)", tickprefix="£", tickformat=","),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02),
+            # Legend below the plot so it never overlaps the top-left title.
+            legend=dict(orientation="h", yanchor="bottom", y=-0.28, xanchor="center", x=0.5),
+            margin=dict(t=48, b=64),
         )
         finalise_fig(fig_gg_val)
         st.plotly_chart(fig_gg_val, width="stretch")
