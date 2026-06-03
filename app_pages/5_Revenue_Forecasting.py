@@ -132,7 +132,7 @@ with st.expander(
         cc1, cc2, cc3 = st.columns(3)
         p = cc1.number_input(
             "Short-term memory",
-            min_value=0, max_value=5, value=1,
+            min_value=0, max_value=3, value=1,
             help="How many past weeks/months directly influence the current value. "
                  "Higher = longer memory, but risks overfitting on short series."
         )
@@ -144,33 +144,23 @@ with st.expander(
         )
         q = cc3.number_input(
             "Shock absorption",
-            min_value=0, max_value=5, value=1,
+            min_value=0, max_value=3, value=1,
             help="How quickly the model 'forgets' a surprise spike or dip. "
                  "1 absorbs last period's shock, higher values remember shocks for longer."
         )
 
-        cc4, cc6, cc7 = st.columns(3)
-        P = cc4.number_input(
-            "Yearly memory",
-            min_value=0, max_value=2, value=0,
-            help="Like short-term memory, but looking back at the same period in previous years "
-                 "(e.g. the same week last year). Usually 0 with limited history."
-        )
-        Q = cc6.number_input(
-            "Yearly shock absorption",
-            min_value=0, max_value=2, value=1,
-            help="Corrects for mis-forecasting the same seasonal period last year. "
-                 "e.g. if the model underestimated last Christmas, it adjusts this year's forecast."
-        )
-        s = cc7.number_input(
-            "Season length",
-            min_value=0, max_value=52, value=default_season,
-            help="How many periods make up one full seasonal cycle. "
-                 "52 for weekly data (one year), 12 for monthly. Set to 0 to disable seasonality."
-        )
+        # The seasonal part is held fixed rather than exposed. On this ~2-year series
+        # (~2 full cycles) the seasonal AR/differencing terms are too weakly identified
+        # to tune safely, so we keep a sensible seasonal MA(1) with no seasonal
+        # differencing and derive the season length from the chosen frequency.
+        P, Q = 0, 1
+        s = default_season
         st.caption(
-            "Seasonal differencing is fixed to 0 for this dataset (~2 years), because "
-            "that is not enough history for stable seasonal differencing."
+            f"Non-seasonal orders (p, d, q) are tunable above. The seasonal part is "
+            f"fixed for this ~2-year dataset (~2 cycles): a seasonal MA(1) with no "
+            f"seasonal differencing, at a period of {default_season} "
+            f"({'weekly-yearly' if freq_code == 'W' else 'monthly-yearly'}) — too "
+            f"little history to identify seasonal AR or differencing terms stably."
         )
     elif model_name == "Theta":
         theta_param = st.slider(

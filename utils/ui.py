@@ -98,6 +98,20 @@ div.section-header .section-title {
     line-height: 1.15 !important;
 }
 
+/* Number inputs: Streamlit paints the value field and the +/- stepper as two
+   separate fills that sit ~1px out of vertical alignment, leaving a faint seam
+   between them and a thin inset outline around the number. Move the fill onto
+   the rounded outer container (its background is clipped to the border radius)
+   and clear the inner field backgrounds so the interior reads as one field. The
+   stepper buttons keep their own background so hover/active states still show. */
+[data-testid="stNumberInputContainer"] {
+    background: #ecebe3 !important;  /* = secondaryBackgroundColor (input fill) */
+}
+[data-testid="stNumberInputContainer"] [data-baseweb="input"],
+[data-testid="stNumberInputContainer"] [data-baseweb="base-input"] {
+    background: transparent !important;
+}
+
 [data-testid="stExpander"] {
     box-shadow: none !important;
 }
